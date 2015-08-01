@@ -1,44 +1,47 @@
 # TeX Macro
 
-A C library that parses and executes TeX style macros. This is useful for converting TeX documents in to something like HTML or Markdown. Extend built in functionality with your own callback functions to do things like read from your database or gather data from other sources.
+A C library that parses and executes TeX style macros. This is useful for converting TeX documents in to something like HTML or Markdown. Extend built in functionality with your own callback functions to do things like read from your database or gather data from external sources.
 
 ## Usage
 
 Basic usage. Execute two source files in the same content:
 
+```
     int main(){
-    	# Create tex context
-    	tex_parser parser = tex_init();
+        // Create tex context
+        tex_parser parser = tex_init();
 
-    	# Parse and "execute" TeX source, printing results to stdout
-    	tex_source(parser, "preamble.tex");
-    	tex_source(parser, "example.tex");
+        // Parse and "execute" TeX source, printing results to stdout
+        tex_source(parser, "preamble.tex");
+        tex_source(parser, "example.tex");
     }
 
 Create a programmatic macro:
 
+```C
     char *my_macro(int argc, char **argv) {
-    	assert(argc == 3); // First argv is macro name
+        assert(argc == 3); // First argv is macro name
 
-    	// Evaluate macro arguments
-	if(strcmp(argv[1], argv[2]) < 0)
-	    printf("True");
-	else
-	    printf("False");
-
-	// None NULL return must be an error message, halts parsing
-	return NULL;
+        // Evaluate macro arguments
+        if(strcmp(argv[1], argv[2]) < 0)
+            printf("True");
+        else
+            printf("False");
+	    
+        // None NULL return must be an error message, halts parsing
+        return NULL;
     }
 
     int main(){
-    	tex_parser parser = tex_init();
+        tex_parser parser = tex_init();
 
-	# Supply a function to handle macro substition
-    	tex_define_macro(parser, "mymacro", "#1 is less than #2", my_macro);
+        // Supply a function to handle macro substition
+        tex_define_macro(parser, "mymacro", "#1 is less than #2", my_macro);
 
-	# Prints "True" to stdout
-	tex_source_str(parser, "\mymacro 1 is less than 2");
+        // Prints "True" to stdout
+        tex_source_str(parser, "\mymacro 1 is less than 2");
     }
+```
 
 ## Why TeX Macro
 
