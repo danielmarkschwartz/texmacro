@@ -60,7 +60,6 @@ void tex_parse(struct tex_parser *p, char *buf, size_t n){
 		assert(cat <= TEX_HANDLER_NUM);
 		if(p->handler[cat])
 			i += p->handler[cat](p, cat, &buf[i], n-i);
-
 	}
 }
 
@@ -71,7 +70,10 @@ void tex_free_parser(struct tex_parser *p){
 size_t handle_esc(struct tex_parser *p, enum tex_category cat, char *buf, size_t n) {
 	size_t i, m;
 	buf++;	//Remove leading ESC character
-	for(i = 1; buf[i] != ' ' && buf[i] !='\\' && buf[i] != '\n' && i < n; i++);
+
+	for(i = 0; buf[i] != ' ' && buf[i] !='\\' && buf[i] != '\n' && i < n; i++);
+
+	if(i == 0 && buf[i] == ' ') i++;
 
 	char *macro = malloc(sizeof(char)*i);
 	assert(macro != NULL);
@@ -113,13 +115,17 @@ int main(int argc, const char *argv[]) {
 
 	tex_init_parser(&p);
 
+	tex_define_macro(&p, " ", " ");
 	tex_define_macro(&p, "TeX", "TexMacro");
+	tex_define_macro(&p, "Bango", "Bongo");
 
+	tex_set_handler(&p, TEX_SPACE, handle_other);
 	tex_set_handler(&p, TEX_ESC, handle_esc);
 	tex_set_handler(&p, TEX_OTHER, handle_other);
 	tex_set_handler(&p, TEX_LETTER, handle_letter);
 	tex_set_handler(&p, TEX_EOL, handle_eol);
-	tex_parse(&p, "\\TeX\n\nPP 2\n", 11);
+	char *input = "\\TeX\\ \\Bango\n\nPP 2\n";
+	tex_parse(&p, input, strlen(input));
 	tex_free_parser(&p);
 
 	return 0;
