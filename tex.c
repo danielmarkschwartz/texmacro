@@ -42,7 +42,10 @@ void tex_init_parser(struct tex_parser *p, char *input){
 	p->cat['%'] = TEX_COMMENT;
 	p->cat[127] = TEX_INVALID;
 
-	p->input = input;
+	p->input = malloc(sizeof(*p->input));
+	assert(p->input);
+
+	*p->input = (struct tex_input){TEX_STRING, .name="", .line=0, .col=0, .str=input, .next=NULL};
 }
 
 void tex_set_handler(struct tex_parser *p, enum tex_category type, void *handler){
@@ -105,10 +108,21 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 		return p->next_token;
 	}
 
-	if(p->input == 0)
-		return (struct tex_token){0, TEX_INVALID};
+	if(p->input == NULL)
+		return (struct tex_token){TEX_INVALID};
 
-	char c = *(p->input++);
+	assert(p->input->type == TEX_STRING);
+	//TODO: handle file inputs
+
+	if(*p->input->str == '\0') {
+		struct tex_input *old = p->input;
+		p->input = p->input->next;
+		free(old);
+		if(p->input == NULL)
+			return (struct tex_token){0, TEX_INVALID};
+	}
+
+	char c = *(p->input->str++);
 	char cat = p->cat[c];
 	assert(cat <= TEX_HANDLER_NUM);
 

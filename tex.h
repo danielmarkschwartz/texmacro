@@ -45,8 +45,24 @@ struct tex_macro {
 	char *macro, *replacement;
 };
 
+enum tex_input_type {
+	TEX_STRING,
+	TEX_FILE
+};
+
+struct tex_input {
+	enum tex_input_type type;
+	char *name;
+	int line, col;
+	union {
+		char *str;
+		FILE *file;
+	};
+	struct tex_input *next;
+};
+
 struct tex_parser {
-	char *input;
+	struct tex_input *input;
 
 	struct tex_token (*handler[TEX_HANDLER_NUM]) (struct tex_parser*, struct tex_token);
 	char cat[128];  //Category code for ASCII characters
