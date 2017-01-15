@@ -4,8 +4,12 @@
 //Max length of control sequence
 #define CS_MAX 1024
 
+struct tex_parser;
+
 enum tex_category {
-	TEX_OTHER,
+	//TODO: improve error handling
+	TEX_ERROR = -1,
+	TEX_OTHER = 0,
 	TEX_BEGIN_GROUP,
 	TEX_END_GROUP,
 	TEX_MATH,
@@ -21,7 +25,6 @@ enum tex_category {
 	TEX_ACTIVE,
 	TEX_COMMENT,
 	TEX_INVALID,
-	TEX_ALL,
 	TEX_HANDLER_NUM,
 };
 
