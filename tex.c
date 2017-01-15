@@ -35,8 +35,8 @@ void tex_init_parser(struct tex_parser *p, char *input){
 	p->cat['_'] = TEX_SUB;
 	p->cat['\0'] = TEX_INVALID;
 	p->cat[' '] = TEX_SPACE;
-	for (c = 'A'; c <= 'Z'; c++) p->cat[c] = TEX_LETTER;
-	for (c = 'a'; c <= 'z'; c++) p->cat[c] = TEX_LETTER;
+	for (c = 'A'; c <= 'Z'; c++) p->cat[(size_t)c] = TEX_LETTER;
+	for (c = 'a'; c <= 'z'; c++) p->cat[(size_t)c] = TEX_LETTER;
 	p->cat['\\'] = TEX_ESC;
 	p->cat['~'] = TEX_ACTIVE;
 	p->cat['%'] = TEX_COMMENT;
@@ -119,11 +119,11 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 		p->input = p->input->next;
 		free(old);
 		if(p->input == NULL)
-			return (struct tex_token){0, TEX_INVALID};
+			return (struct tex_token){TEX_INVALID};
 	}
 
 	char c = *(p->input->str++);
-	char cat = p->cat[c];
+	char cat = p->cat[(size_t)c];
 	assert(cat <= TEX_HANDLER_NUM);
 
 	if(cat == TEX_ESC) {
@@ -154,13 +154,16 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 			p->state = TEX_MIDLINE;
 		}
 
+		//Handles build in escape sequences
 		if(tok.cat == TEX_ESC) {
 			if(strcmp(tok.s, "par") == 0) {
 				tex_token_free(tok);
-				tok = (struct tex_token){TEX_OTHER, '\n'};
+				tok = (struct tex_token){TEX_OTHER, .c='\n'};
+			} else {
+				//printf("Unknown token %s\n", tok.s);
+				//assert(tok.cat != TEX_ESC); //Unhandled tex macro
+				continue;
 			}
-			else
-				assert(tok.cat != TEX_ESC); //Unhandled tex macro
 		}
 
 		buf[i] = tok.c;
@@ -190,7 +193,7 @@ struct tex_token handle_eol(struct tex_parser *p, struct tex_token t){
 	switch(p->state){
 	case TEX_NEWLINE:	t = (struct tex_token){TEX_ESC, .s=strdup("par")}; break; //Return \par
 	case TEX_SKIPSPACE:	t = (struct tex_token){TEX_INVALID}; break;  //Skip space
-	case TEX_MIDLINE:	t = (struct tex_token){TEX_OTHER, ' '}; break; // Convert to space
+	case TEX_MIDLINE:	t = (struct tex_token){TEX_OTHER, .c=' '}; break; // Convert to space
 	default: assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
 	}
 
@@ -220,7 +223,7 @@ struct tex_token handle_space(struct tex_parser *p, struct tex_token t){
 		return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
 
 	p->state = TEX_SKIPSPACE;
-	return (struct tex_token){TEX_OTHER, ' '};
+	return (struct tex_token){TEX_OTHER, .c=' '};
 }
 
 int main(int argc, const char *argv[]) {
