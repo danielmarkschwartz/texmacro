@@ -42,7 +42,8 @@ struct tex_token {
 };
 
 struct tex_macro {
-	char *macro, *replacement;
+	char *macro, *arglist, *replacement;
+	struct tex_token (*handler)(struct tex_parser *, struct tex_macro);
 };
 
 enum tex_input_type {

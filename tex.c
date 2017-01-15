@@ -54,11 +54,25 @@ void tex_set_handler(struct tex_parser *p, enum tex_category type, void *handler
 	p->handler[type] = handler;
 }
 
-void tex_define_macro(struct tex_parser *p, char *macro, char *replacement) {
+void tex_define_macro_func(struct tex_parser *p, char *macro, struct tex_token (*handler)(struct tex_parser*, struct tex_macro)){
 	assert(p);
 	assert(p->macros_n < MACRO_MAX);
 
-	p->macros[p->macros_n++] = (struct tex_macro){macro, replacement};
+	p->macros[p->macros_n++] = (struct tex_macro){macro, .handler=handler};
+}
+
+//Handle a general purpose macro, such as those previously defined by \def
+struct tex_token tex_handle_macro_general(struct tex_parser* p, struct tex_macro m){
+	//TODO: expand macro if necessary, otherwise just quit
+	//TODO: parse arguments base on input list
+	return (struct tex_token){TEX_OTHER, .c='%'};
+}
+
+void tex_define_macro(struct tex_parser *p, char *macro, char *arglist, char *replacement) {
+	assert(p);
+	assert(p->macros_n < MACRO_MAX);
+
+	p->macros[p->macros_n++] = (struct tex_macro){macro, arglist, replacement, tex_handle_macro_general};
 }
 
 char *tex_read_control_sequence(struct tex_parser *p) {
@@ -201,20 +215,6 @@ struct tex_token handle_eol(struct tex_parser *p, struct tex_token t){
 	return t;
 }
 
-struct tex_token handle_esc(struct tex_parser *p, struct tex_token t){
-
-	//TODO: In what part of the code do I go about expanding macros?
-	//Actually, probably here, you need a way to pass of completed input to the parser state
-	printf("<%s>", t.s);
-	//TODO: handle \def tokens special, parsing the paramater list
-
-	//TODO: otherwise than \def, find macro in namespace, and try to match paramater list
-
-	//TODO: create parser in macro namespace, and parse replacement
-
-	return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
-}
-
 //SPACE behavior depends on the current parser state
 struct tex_token handle_space(struct tex_parser *p, struct tex_token t){
 	assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
@@ -226,6 +226,22 @@ struct tex_token handle_space(struct tex_parser *p, struct tex_token t){
 	return (struct tex_token){TEX_OTHER, .c=' '};
 }
 
+struct tex_token handle_esc(struct tex_parser *p, struct tex_token t){
+	//Look for user defined macro
+	size_t n = 0;
+	while(n < p->macros_n)
+		if(strcmp(p->macros[n].macro, t.s) == 0) break;
+		else n++;
+
+	if(n == p->macros_n){
+		printf("ERROR: %s not defined", t.s);
+		return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
+	}
+
+	assert(p->macros[n].handler);
+	return p->macros[n].handler(p, p->macros[n]);
+}
+
 int main(int argc, const char *argv[]) {
 
 	struct tex_parser p;
@@ -233,12 +249,9 @@ int main(int argc, const char *argv[]) {
 	char *input = "\\TeX\\ %\\Bango\n\nSome     more        text\n\nPP 2\n";
 	tex_init_parser(&p, input);
 
-	tex_define_macro(&p, " ", " ");
-	tex_define_macro(&p, "TeX", "TexMacro");
-	tex_define_macro(&p, "Bango", "Bongo");
-
-	//TODO: handle ESC sequences
-	//based on description in The Tex Book
+	tex_define_macro(&p, " ", "", " ");
+	tex_define_macro(&p, "TeX", "", "TexMacro");
+	tex_define_macro(&p, "Bango", "", "Bongo");
 
 	tex_set_handler(&p, TEX_ESC, handle_esc);
 	tex_set_handler(&p, TEX_SPACE, handle_space);
