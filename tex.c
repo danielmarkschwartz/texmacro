@@ -11,6 +11,11 @@
 
 #include "tex.h"
 
+void tex_token_free(struct tex_token t) {
+	if(t.cat == TEX_ESC)
+		free(t.s);
+}
+
 void tex_init_parser(struct tex_parser *p, char *input){
 	char c;
 
@@ -109,7 +114,7 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 
 	if(cat == TEX_ESC) {
 		char *cs = tex_read_control_sequence(p);
-		return (struct tex_token){cat, {.s= cs}};
+		return (struct tex_token){TEX_ESC, {.s= cs}};
 	}
 
 	return (struct tex_token){cat,{.c=c}};
@@ -126,13 +131,25 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 			break;
 
 		if(p->handler[tok.cat]) {
-			char c = p->handler[tok.cat](p, tok);
-			if(c == 0) i--;
-			else buf[i] = c;
+			tok = p->handler[tok.cat](p, tok);
+			if(tok.cat == TEX_INVALID) {
+				i--;
+				continue;
+			}
 		} else {
-			buf[i] = tok.c;
 			p->state = TEX_MIDLINE;
 		}
+
+		if(tok.cat == TEX_ESC) {
+			if(strcmp(tok.s, "par") == 0) {
+				tex_token_free(tok);
+				tok = (struct tex_token){TEX_OTHER, '\n'};
+			}
+			else
+				assert(tok.cat != TEX_ESC); //Unhandled tex macro
+		}
+
+		buf[i] = tok.c;
 
 	}
 
@@ -144,36 +161,33 @@ void tex_free_parser(struct tex_parser *p){
 }
 
 //Ignored characters do nothing
-char handle_ignore(struct tex_parser *p, struct tex_token t){
-	return 0; //Indicates this handler returned no input
+struct tex_token handle_ignore(struct tex_parser *p, struct tex_token t){
+	return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
 }
 
 //Handle a comment by stripping the line and returning no input
-char handle_comment(struct tex_parser *p, struct tex_token t){
+struct tex_token handle_comment(struct tex_parser *p, struct tex_token t){
 	while(tex_read_token(p).cat != TEX_EOL);
-	return 0; //Indicates this handler returned no input
+	return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
 }
 
 //EOL behavior depends on the current parser state
-char handle_eol(struct tex_parser *p, struct tex_token t){
-	char c;
-
+struct tex_token handle_eol(struct tex_parser *p, struct tex_token t){
 	switch(p->state){
-	case TEX_NEWLINE:	c = '\n'; break; // '\n' represents a \par tag here
-	case TEX_SKIPSPACE:	c = 0;    break; // Ignore newline
-	case TEX_MIDLINE:	c = ' ';  break; // Convert to space character
+	case TEX_NEWLINE:	t = (struct tex_token){TEX_ESC, .s=strdup("par")}; break; //Return \par
+	case TEX_SKIPSPACE:	t = (struct tex_token){TEX_INVALID}; break;  //Skip space
+	case TEX_MIDLINE:	t = (struct tex_token){TEX_OTHER, ' '}; break; // Convert to space
 	default: assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
 	}
 
 	p->state = TEX_NEWLINE;
-	return c;
+	return t;
 }
 
-//TODO: delete this function
-char handle_esc(struct tex_parser *p, struct tex_token t){
+struct tex_token handle_esc(struct tex_parser *p, struct tex_token t){
 
 	//TODO: In what part of the code do I go about expanding macros?
-	//Actually, probably in the tex_read() function directly
+	//Actually, probably here, you need a way to pass of completed input to the parser state
 	printf("<%s>", t.s);
 	//TODO: handle \def tokens special, parsing the paramater list
 
@@ -181,18 +195,18 @@ char handle_esc(struct tex_parser *p, struct tex_token t){
 
 	//TODO: create parser in macro namespace, and parse replacement
 
-	return 0;
+	return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
 }
 
 //SPACE behavior depends on the current parser state
-char handle_space(struct tex_parser *p, struct tex_token t){
+struct tex_token handle_space(struct tex_parser *p, struct tex_token t){
 	assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
 
 	if(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE)
-		return 0; //Ignore space
+		return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
 
 	p->state = TEX_SKIPSPACE;
-	return ' ';
+	return (struct tex_token){TEX_OTHER, ' '};
 }
 
 int main(int argc, const char *argv[]) {

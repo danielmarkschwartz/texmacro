@@ -48,7 +48,7 @@ struct tex_macro {
 struct tex_parser {
 	char *input;
 
-	char (*handler[TEX_HANDLER_NUM]) (struct tex_parser*, struct tex_token);
+	struct tex_token (*handler[TEX_HANDLER_NUM]) (struct tex_parser*, struct tex_token);
 	char cat[128];  //Category code for ASCII characters
 			//Note: 0 (esc) is switched with 12 (other)
 			//internally for simplicity
