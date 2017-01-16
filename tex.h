@@ -3,6 +3,7 @@
 
 //Max length of control sequence
 #define CS_MAX 1024
+#define MAX_TOKEN_LIST 1024
 
 struct tex_parser;
 
@@ -25,7 +26,7 @@ enum tex_category {
 	TEX_ACTIVE,
 	TEX_COMMENT,
 	TEX_INVALID,
-	TEX_HANDLER_NUM,
+	TEX_CAT_NUM,
 };
 
 enum tex_state {
@@ -69,7 +70,6 @@ struct tex_input {
 struct tex_parser {
 	struct tex_input *input;
 
-	struct tex_token (*handler[TEX_HANDLER_NUM]) (struct tex_parser*, struct tex_token);
 	char cat[128];  //Category code for ASCII characters
 			//Note: 0 (esc) is switched with 12 (other)
 			//internally for simplicity
@@ -79,7 +79,7 @@ struct tex_parser {
 	enum tex_state state;
 
 	char next_char;
-	int has_next_char, is_parsing_cs;
+	int has_next_char;
 };
 
 void tex_init_parser(struct tex_parser *p, char *input);
@@ -87,6 +87,7 @@ void tex_set_handler(struct tex_parser *p, enum tex_category type, void *handler
 void tex_parse(struct tex_parser *p, char *buf, size_t n);
 void tex_free_parser(struct tex_parser *p);
 struct tex_token tex_read_token(struct tex_parser *p);
+struct tex_token tex_read_char(struct tex_parser *p);
 void tex_unread_char(struct tex_parser *p);
 void tex_define_macro(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement);
 char *tex_read_control_sequence(struct tex_parser *p);

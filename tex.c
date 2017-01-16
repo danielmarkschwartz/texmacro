@@ -8,6 +8,7 @@
 #define FALSE 0
 
 #include <assert.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -70,12 +71,6 @@ void tex_init_parser(struct tex_parser *p, char *input){
 	*p->input = (struct tex_input){TEX_STRING, .name="", .line=0, .col=0, .str=input, .next=NULL};
 }
 
-void tex_set_handler(struct tex_parser *p, enum tex_category type, void *handler){
-	assert(p);
-	assert(type >= 0 && type < TEX_HANDLER_NUM);
-	p->handler[type] = handler;
-}
-
 void tex_define_macro_func(struct tex_parser *p, char *cs, struct tex_token (*handler)(struct tex_parser*, struct tex_macro)){
 	assert(p);
 	assert(p->macros_n < MACRO_MAX);
@@ -87,13 +82,34 @@ void tex_define_macro_func(struct tex_parser *p, char *cs, struct tex_token (*ha
 //arguments to the supplied buffer, which must be large enough to accomidate all numbered
 //arguments in the arglist
 void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, char **args) {
-
 }
+
 
 //Returns an arglist parsed from the parser input. This is what would follow a \def, as in
 //\def\cs<arglist>{<replacement>}
 struct tex_token *tex_parse_arglist(struct tex_parser *p) {
-	return NULL;
+	struct tex_token *tl = malloc(sizeof(*tl) * (MAX_TOKEN_LIST+1));
+	assert(tl);
+
+	int pn = 1; //parameter number
+	size_t n = 0;
+	struct tex_token t;
+	while((t = tex_read_char(p)).cat != TEX_BEGIN_GROUP) {
+		assert(n < MAX_TOKEN_LIST);
+		if(t.cat == TEX_INVALID) break;
+
+		if(t.cat == TEX_PARAMETER) {
+			assert(t.c - '0' == pn++);
+		}
+
+		tl[n++] = t;
+	}
+
+	tl[n] = (struct tex_token){TEX_INVALID};
+
+	tex_unread_char(p);
+
+	return tl;
 }
 
 //Reads one balanced block of tokens, or just the next token if not a block
@@ -107,13 +123,26 @@ struct tex_token tex_handle_macro_general(struct tex_parser* p, struct tex_macro
 	return (struct tex_token){TEX_OTHER, .c='%'};
 }
 
+static void print_token_list(struct tex_token *tl) {
+	if(tl == NULL){
+		fprintf(stderr, "(null)");
+		return;
+	}
+
+	while(tl->cat != TEX_INVALID) {
+		if(tl->cat == TEX_ESC)
+			fprintf(stderr, "(%i, %s)", tl->cat, tl->s);
+		else
+			fprintf(stderr, "(%i, %c)", tl->cat, tl->c);
+		tl++;
+	}
+}
+
 //Handle \def macros
 struct tex_token tex_handle_macro_def(struct tex_parser* p, struct tex_macro m){
 	struct tex_token cs = tex_read_token(p);
-	fprintf(stderr, "Got token = {%i, '%c', \"%s\"}\n", cs.cat, cs.c, cs.s);
 	assert(cs.cat == TEX_ESC);
 
-	fprintf(stderr, "Got CS = '%s'\n", cs.s);
 	struct tex_token *arglist = tex_parse_arglist(p);
 	struct tex_token *replacement = tex_read_block(p);
 
@@ -131,10 +160,9 @@ void tex_define_macro(struct tex_parser *p, char *cs, struct tex_token *arglist,
 
 char *tex_read_control_sequence(struct tex_parser *p) {
 	assert(p);
-	p->is_parsing_cs = TRUE;
 
-	struct tex_token tok = tex_read_token(p);
-	char *cs;
+	struct tex_token tok = tex_read_char(p);
+	char *cs = NULL;
 
 	if(tok.cat == TEX_EOL) {
 		cs = strdup("");
@@ -153,7 +181,7 @@ char *tex_read_control_sequence(struct tex_parser *p) {
 		do {
 			assert(n < CS_MAX);
 			buf[n++] = tok.c;
-		} while ((tok = tex_read_token(p)).cat == TEX_LETTER);
+		} while ((tok = tex_read_char(p)).cat == TEX_LETTER);
 
 		tex_unread_char(p);
 
@@ -162,8 +190,6 @@ char *tex_read_control_sequence(struct tex_parser *p) {
 
 		p->state = TEX_SKIPSPACE;
 	}
-
-	p->is_parsing_cs = FALSE;
 
 	return cs;
 }
@@ -174,12 +200,11 @@ void tex_unread_char(struct tex_parser *p) {
 	p->has_next_char = TRUE;
 }
 
-//Read the next token from the parser input
-struct tex_token tex_read_token(struct tex_parser *p) {
+struct tex_token tex_read_char(struct tex_parser *p) {
 	char c;
 
 	if(p->has_next_char){
-		p->has_next_char = 0;
+		p->has_next_char = FALSE;
 		c = p->next_char;
 	} else {
 		if(p->input == NULL)
@@ -201,14 +226,75 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 	}
 
 	char cat = p->cat[(size_t)c];
-	assert(cat <= TEX_HANDLER_NUM);
+	assert(cat <= TEX_CAT_NUM);
 
-	if(cat == TEX_ESC && !p->is_parsing_cs) {
+	return (struct tex_token){cat, .c=c};
+}
+
+//Read the next token from the parser input
+struct tex_token tex_read_token(struct tex_parser *p) {
+	struct tex_token t = tex_read_char(p);
+
+	//Read in multibyte control sequences
+	if(t.cat == TEX_ESC){
 		char *cs = tex_read_control_sequence(p);
-		return (struct tex_token){TEX_ESC, {.s= cs}};
+		t.s = cs;
 	}
 
-	return (struct tex_token){cat,{.c=c}};
+	assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
+
+	switch(t.cat){
+	case TEX_ESC: {
+		size_t n = 0;
+		while(n < p->macros_n)
+			if(strcmp(p->macros[n].cs, t.s) == 0) break;
+			else n++;
+
+		if(n == p->macros_n){
+			fprintf(stderr, "ERROR: %s not defined\n", t.s);
+			tex_token_free(t);
+			return (struct tex_token){TEX_IGNORE}; //Indicates this handler returned no input
+		}
+
+		assert(p->macros[n].handler);
+		return p->macros[n].handler(p, p->macros[n]);
+	}
+
+	case TEX_SPACE:
+		if(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE)
+			return (struct tex_token){TEX_IGNORE};
+
+		p->state = TEX_SKIPSPACE;
+		return (struct tex_token){TEX_OTHER, .c=' '};
+
+	case TEX_EOL:
+		switch(p->state){
+		case TEX_NEWLINE:	t = (struct tex_token){TEX_ESC, .s=strdup("par")}; break; //Return \par
+		case TEX_SKIPSPACE:	t = (struct tex_token){TEX_IGNORE}; break;  //Skip space
+		case TEX_MIDLINE:	t = (struct tex_token){TEX_OTHER, .c=' '}; break; // Convert to space
+		default: assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
+		}
+
+		p->state = TEX_NEWLINE;
+		return t;
+
+	case TEX_COMMENT:
+		while(tex_read_char(p).cat != TEX_EOL);
+		return (struct tex_token){TEX_IGNORE};
+
+	case TEX_PARAMETER:
+		t = tex_read_char(p);
+		if(t.cat == TEX_PARAMETER)
+			return (struct tex_token){TEX_OTHER, .c=t.c};
+
+		assert(isdigit(t.c));
+		return (struct tex_token){TEX_PARAMETER, .c=t.c};
+
+	default:
+		p->state = TEX_MIDLINE;
+	}
+
+	return t;
 }
 
 //Write the next n characters to the output buffer, returns the number written.
@@ -220,31 +306,12 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 		struct tex_token tok = tex_read_token(p);
 		if(tok.cat == TEX_INVALID)
 			break;
-
-		if(p->handler[tok.cat]) {
-			tok = p->handler[tok.cat](p, tok);
-			if(tok.cat == TEX_INVALID) {
-				i--;
-				continue;
-			}
-		} else {
-			p->state = TEX_MIDLINE;
-		}
-
-		//Handles build in escape sequences
-		if(tok.cat == TEX_ESC) {
-			if(strcmp(tok.s, "par") == 0) {
-				tex_token_free(tok);
-				tok = (struct tex_token){TEX_OTHER, .c='\n'};
-			} else {
-				//printf("Unknown token %s\n", tok.s);
-				//assert(tok.cat != TEX_ESC); //Unhandled tex macro
-				continue;
-			}
+		if(tok.cat == TEX_IGNORE) {
+			i--;
+			continue;
 		}
 
 		buf[i] = tok.c;
-
 	}
 
 	return i;
@@ -272,14 +339,6 @@ int main(int argc, const char *argv[]) {
 		"\\test B {CC}\n";
 
 	tex_init_parser(&p, input);
-
-	tex_define_macro_func(&p, "def", tex_handle_macro_def);
-
-	tex_set_handler(&p, TEX_ESC, handle_esc);
-	tex_set_handler(&p, TEX_SPACE, handle_space);
-	tex_set_handler(&p, TEX_EOL, handle_eol);
-	tex_set_handler(&p, TEX_IGNORE, handle_ignore);
-	tex_set_handler(&p, TEX_COMMENT, handle_comment);
 
 	//NOTE: TEX_INVALID characters do continue with a warning, as in regular tex,
 	//but instead indicated end of input. By default only '\0' and '\127' are INVALID,
