@@ -77,8 +77,8 @@ struct tex_parser {
 
 	enum tex_state state;
 
-	struct tex_token next_token;
-	int has_next_token;
+	char next_char;
+	int has_next_char, is_parsing_cs;
 };
 
 void tex_init_parser(struct tex_parser *p, char *input);
@@ -86,6 +86,8 @@ void tex_set_handler(struct tex_parser *p, enum tex_category type, void *handler
 void tex_parse(struct tex_parser *p, char *buf, size_t n);
 void tex_free_parser(struct tex_parser *p);
 struct tex_token tex_read_token(struct tex_parser *p);
-void tex_unread_token(struct tex_parser *p, struct tex_token tok);
+void tex_unread_char(struct tex_parser *p);
+void tex_define_macro(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement);
+char *tex_read_control_sequence(struct tex_parser *p);
 
 #endif /* end of include guard: TEX_H */

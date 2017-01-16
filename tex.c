@@ -4,6 +4,9 @@
 *
 */
 
+#define TRUE 1
+#define FALSE 0
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,8 +79,12 @@ void tex_define_macro(struct tex_parser *p, char *macro, char *arglist, char *re
 }
 
 char *tex_read_control_sequence(struct tex_parser *p) {
+	assert(p);
+	p->is_parsing_cs = TRUE;
+
 	struct tex_token tok = tex_read_token(p);
 	char *cs;
+
 	if(tok.cat == TEX_EOL) {
 		cs = strdup("");
 		assert(cs);
@@ -97,7 +104,7 @@ char *tex_read_control_sequence(struct tex_parser *p) {
 			buf[n++] = tok.c;
 		} while ((tok = tex_read_token(p)).cat == TEX_LETTER);
 
-		tex_unread_token(p, tok);
+		tex_unread_char(p);
 
 		buf[n++] = 0;
 		cs = strdup(buf);
@@ -105,42 +112,47 @@ char *tex_read_control_sequence(struct tex_parser *p) {
 		p->state = TEX_SKIPSPACE;
 	}
 
+	p->is_parsing_cs = FALSE;
+
 	return cs;
 }
 
-void tex_unread_token(struct tex_parser *p, struct tex_token tok) {
-	assert(!p->has_next_token);
-	p->next_token = tok;
-	p->has_next_token = 1;
+//Unread the last character
+void tex_unread_char(struct tex_parser *p) {
+	assert(!p->has_next_char);
+	p->has_next_char = TRUE;
 }
 
 //Read the next token from the parser input
 struct tex_token tex_read_token(struct tex_parser *p) {
+	char c;
 
-	if(p->has_next_token){
-		p->has_next_token = 0;
-		return p->next_token;
-	}
-
-	if(p->input == NULL)
-		return (struct tex_token){TEX_INVALID};
-
-	assert(p->input->type == TEX_STRING);
-	//TODO: handle file inputs
-
-	if(*p->input->str == '\0') {
-		struct tex_input *old = p->input;
-		p->input = p->input->next;
-		free(old);
+	if(p->has_next_char){
+		p->has_next_char = 0;
+		c = p->next_char;
+	} else {
 		if(p->input == NULL)
 			return (struct tex_token){TEX_INVALID};
+
+		assert(p->input->type == TEX_STRING);
+		//TODO: handle file inputs
+
+		if(*p->input->str == '\0') {
+			struct tex_input *old = p->input;
+			p->input = p->input->next;
+			free(old);
+			if(p->input == NULL)
+				return (struct tex_token){TEX_INVALID};
+		}
+
+		c = *(p->input->str++);
+		p->next_char = c;
 	}
 
-	char c = *(p->input->str++);
 	char cat = p->cat[(size_t)c];
 	assert(cat <= TEX_HANDLER_NUM);
 
-	if(cat == TEX_ESC) {
+	if(cat == TEX_ESC && !p->is_parsing_cs) {
 		char *cs = tex_read_control_sequence(p);
 		return (struct tex_token){TEX_ESC, {.s= cs}};
 	}
