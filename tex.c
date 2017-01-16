@@ -14,6 +14,25 @@
 
 #include "tex.h"
 
+#include <execinfo.h>
+#include <signal.h>
+#include <stdlib.h>
+
+
+void handler(int sig) {
+	void *array[10];
+	size_t size;
+
+	// get void*'s for all entries on the stack
+	size = backtrace(array, 10);
+
+	// print out all the frames to stderr
+	fprintf(stderr, "Error: signal %d:\n", sig);
+	backtrace_symbols_fd(array, size, 2);
+	exit(1);
+}
+
+
 void tex_token_free(struct tex_token t) {
 	if(t.cat == TEX_ESC)
 		free(t.s);
@@ -235,58 +254,14 @@ void tex_free_parser(struct tex_parser *p){
 	//Nothing to be done, yet
 }
 
-//Ignored characters do nothing
-struct tex_token handle_ignore(struct tex_parser *p, struct tex_token t){
-	return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
-}
-
-//Handle a comment by stripping the line and returning no input
-struct tex_token handle_comment(struct tex_parser *p, struct tex_token t){
-	while(tex_read_token(p).cat != TEX_EOL);
-	return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
-}
-
-//EOL behavior depends on the current parser state
-struct tex_token handle_eol(struct tex_parser *p, struct tex_token t){
-	switch(p->state){
-	case TEX_NEWLINE:	t = (struct tex_token){TEX_ESC, .s=strdup("par")}; break; //Return \par
-	case TEX_SKIPSPACE:	t = (struct tex_token){TEX_INVALID}; break;  //Skip space
-	case TEX_MIDLINE:	t = (struct tex_token){TEX_OTHER, .c=' '}; break; // Convert to space
-	default: assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
-	}
-
-	p->state = TEX_NEWLINE;
-	return t;
-}
-
-//SPACE behavior depends on the current parser state
-struct tex_token handle_space(struct tex_parser *p, struct tex_token t){
-	assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
-
-	if(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE)
-		return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
-
-	p->state = TEX_SKIPSPACE;
-	return (struct tex_token){TEX_OTHER, .c=' '};
-}
-
+/*
 struct tex_token handle_esc(struct tex_parser *p, struct tex_token t){
 	//Look for user defined macro
-	size_t n = 0;
-	while(n < p->macros_n)
-		if(strcmp(p->macros[n].cs, t.s) == 0) break;
-		else n++;
-
-	if(n == p->macros_n){
-		fprintf(stderr, "ERROR: %s not defined\n", t.s);
-		return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
-	}
-
-	assert(p->macros[n].handler);
-	return p->macros[n].handler(p, p->macros[n]);
 }
+*/
 
 int main(int argc, const char *argv[]) {
+	signal(SIGSEGV, handler);   // install our handler
 
 	struct tex_parser p;
 
