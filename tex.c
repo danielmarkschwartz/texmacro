@@ -20,6 +20,7 @@
 #include <stdlib.h>
 
 
+//Handle stack dumps
 void handler(int sig) {
 	void *array[10];
 	size_t size;
@@ -71,7 +72,7 @@ void tex_init_parser(struct tex_parser *p, char *input){
 	*p->input = (struct tex_input){TEX_STRING, .name="", .line=0, .col=0, .str=input, .next=NULL};
 }
 
-void tex_define_macro_func(struct tex_parser *p, char *cs, struct tex_token (*handler)(struct tex_parser*, struct tex_macro)){
+void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_macro)){
 	assert(p);
 	assert(p->macros_n < MACRO_MAX);
 
@@ -91,15 +92,16 @@ struct tex_token *tex_parse_arglist(struct tex_parser *p) {
 	struct tex_token *tl = malloc(sizeof(*tl) * (MAX_TOKEN_LIST+1));
 	assert(tl);
 
+	//TODO: parse arguments base on input list
 	int pn = 1; //parameter number
 	size_t n = 0;
 	struct tex_token t;
-	while((t = tex_read_char(p)).cat != TEX_BEGIN_GROUP) {
+	while((t = tex_read_token(p)).cat != TEX_BEGIN_GROUP) {
 		assert(n < MAX_TOKEN_LIST);
 		if(t.cat == TEX_INVALID) break;
 
 		if(t.cat == TEX_PARAMETER) {
-			assert(t.c - '0' == pn++);
+			assert(t.c == pn++);
 		}
 
 		tl[n++] = t;
@@ -107,22 +109,38 @@ struct tex_token *tex_parse_arglist(struct tex_parser *p) {
 
 	tl[n] = (struct tex_token){TEX_INVALID};
 
+	//We can do this after tex_read_token, because this must be a TEX_BEGIN_GROUP, not TEX_ESC
+	//which would mess up the parse by droping characters
 	tex_unread_char(p);
 
 	return tl;
 }
 
-//Reads one balanced block of tokens, or just the next token if not a block
+//Reads one balanced block of tokens, or NULL if next token is not a TEX_BEGIN_GROUP
 struct tex_token *tex_read_block(struct tex_parser *p) {
-	return NULL;
+	struct tex_token *tl = malloc(sizeof(*tl) * (MAX_TOKEN_LIST+1));
+	assert(tl);
+
+	struct tex_token t = tex_read_token(p);
+	if(t.cat != TEX_BEGIN_GROUP) return NULL;
+
+	size_t n = 0;
+	while((t = tex_read_token(p)).cat != TEX_END_GROUP) {
+		assert(n < MAX_TOKEN_LIST);
+		tl[n++] = t;
+	}
+
+	tl[n] = (struct tex_token){TEX_INVALID};
+
+	return tl;
 }
 
 //Handle a general purpose macro, such as those previously defined by \def
-struct tex_token tex_handle_macro_general(struct tex_parser* p, struct tex_macro m){
-	//TODO: parse arguments base on input list
-	return (struct tex_token){TEX_OTHER, .c='%'};
+void tex_handle_macro_general(struct tex_parser* p, struct tex_macro m){
+	//TODO:
 }
 
+/*
 static void print_token_list(struct tex_token *tl) {
 	if(tl == NULL){
 		fprintf(stderr, "(null)");
@@ -137,18 +155,22 @@ static void print_token_list(struct tex_token *tl) {
 		tl++;
 	}
 }
+*/
+
+void tex_handle_macro_par(struct tex_parser* p, struct tex_macro m){
+	//TODO
+}
 
 //Handle \def macros
-struct tex_token tex_handle_macro_def(struct tex_parser* p, struct tex_macro m){
+void tex_handle_macro_def(struct tex_parser* p, struct tex_macro m){
 	struct tex_token cs = tex_read_token(p);
 	assert(cs.cat == TEX_ESC);
 
 	struct tex_token *arglist = tex_parse_arglist(p);
 	struct tex_token *replacement = tex_read_block(p);
+	assert(replacement);
 
 	tex_define_macro(p, cs.s, arglist, replacement);
-
-	return (struct tex_token){TEX_INVALID};
 }
 
 void tex_define_macro(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement) {
@@ -235,30 +257,9 @@ struct tex_token tex_read_char(struct tex_parser *p) {
 struct tex_token tex_read_token(struct tex_parser *p) {
 	struct tex_token t = tex_read_char(p);
 
-	//Read in multibyte control sequences
-	if(t.cat == TEX_ESC){
-		char *cs = tex_read_control_sequence(p);
-		t.s = cs;
-	}
-
 	assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
 
 	switch(t.cat){
-	case TEX_ESC: {
-		size_t n = 0;
-		while(n < p->macros_n)
-			if(strcmp(p->macros[n].cs, t.s) == 0) break;
-			else n++;
-
-		if(n == p->macros_n){
-			fprintf(stderr, "ERROR: %s not defined\n", t.s);
-			tex_token_free(t);
-			return (struct tex_token){TEX_IGNORE}; //Indicates this handler returned no input
-		}
-
-		assert(p->macros[n].handler);
-		return p->macros[n].handler(p, p->macros[n]);
-	}
 
 	case TEX_SPACE:
 		if(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE)
@@ -288,13 +289,33 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 			return (struct tex_token){TEX_OTHER, .c=t.c};
 
 		assert(isdigit(t.c));
-		return (struct tex_token){TEX_PARAMETER, .c=t.c};
+		return (struct tex_token){TEX_PARAMETER, .c=t.c-'0'};
+
+	case TEX_ESC:
+		t.s = tex_read_control_sequence(p);
+		//fallthrough to default:
 
 	default:
 		p->state = TEX_MIDLINE;
 	}
 
 	return t;
+}
+
+void tex_macro_replace(struct tex_parser *p, struct tex_token t) {
+	size_t n = 0;
+	while(n < p->macros_n)
+		if(strcmp(p->macros[n].cs, t.s) == 0) break;
+		else n++;
+
+	if(n == p->macros_n){
+		fprintf(stderr, "ERROR: %s not defined\n", t.s);
+	} else {
+		assert(p->macros[n].handler);
+		p->macros[n].handler(p, p->macros[n]);
+	}
+
+	tex_token_free(t);
 }
 
 //Write the next n characters to the output buffer, returns the number written.
@@ -306,12 +327,12 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 		struct tex_token tok = tex_read_token(p);
 		if(tok.cat == TEX_INVALID)
 			break;
-		if(tok.cat == TEX_IGNORE) {
-			i--;
-			continue;
-		}
 
-		buf[i] = tok.c;
+		switch(tok.cat) {
+		case TEX_IGNORE: i--; continue;
+		case TEX_ESC: tex_macro_replace(p, tok); i--; continue;
+		default: buf[i] = tok.c;
+		}
 	}
 
 	return i;
@@ -320,12 +341,6 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 void tex_free_parser(struct tex_parser *p){
 	//Nothing to be done, yet
 }
-
-/*
-struct tex_token handle_esc(struct tex_parser *p, struct tex_token t){
-	//Look for user defined macro
-}
-*/
 
 int main(int argc, const char *argv[]) {
 	signal(SIGSEGV, handler);   // install our handler
@@ -339,6 +354,8 @@ int main(int argc, const char *argv[]) {
 		"\\test B {CC}\n";
 
 	tex_init_parser(&p, input);
+	tex_define_macro_func(&p, "def", tex_handle_macro_def);
+	tex_define_macro_func(&p, "par", tex_handle_macro_par);
 
 	//NOTE: TEX_INVALID characters do continue with a warning, as in regular tex,
 	//but instead indicated end of input. By default only '\0' and '\127' are INVALID,

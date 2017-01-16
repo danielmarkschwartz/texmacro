@@ -48,7 +48,7 @@ struct tex_token {
 struct tex_macro {
 	char *cs; //Macro control sequence string
 	struct tex_token *arglist, *replacement; //TEX_INVALID terminated token lists
-	struct tex_token (*handler)(struct tex_parser *, struct tex_macro);
+	void (*handler)(struct tex_parser *, struct tex_macro);
 };
 
 enum tex_input_type {
@@ -83,7 +83,6 @@ struct tex_parser {
 };
 
 void tex_init_parser(struct tex_parser *p, char *input);
-void tex_set_handler(struct tex_parser *p, enum tex_category type, void *handler);
 void tex_parse(struct tex_parser *p, char *buf, size_t n);
 void tex_free_parser(struct tex_parser *p);
 struct tex_token tex_read_token(struct tex_parser *p);
