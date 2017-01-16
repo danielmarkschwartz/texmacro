@@ -51,26 +51,26 @@ struct tex_macro {
 	void (*handler)(struct tex_parser *, struct tex_macro);
 };
 
-enum tex_input_type {
+enum tex_char_stream_type {
 	TEX_STRING,
 	TEX_FILE
 };
 
-struct tex_input {
-	enum tex_input_type type;
+struct tex_char_stream {
+	enum tex_char_stream_type type;
 	char *name;
 	int line, col;
 	union {
 		char *str;
 		FILE *file;
 	};
-	struct tex_input *next;
+	struct tex_char_stream *next;
 	char next_char;
 	int has_next_char;
 };
 
 struct tex_parser {
-	struct tex_input *input;
+	struct tex_char_stream *char_stream;
 
 	char cat[128];  //Category code for ASCII characters
 			//Note: 0 (esc) is switched with 12 (other)

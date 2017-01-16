@@ -40,28 +40,28 @@ void tex_token_free(struct tex_token t) {
 		free(t.s);
 }
 
-struct tex_input *tex_input_str(char *input, struct tex_input *next){
-	struct tex_input *i = malloc(sizeof(*i));
+struct tex_char_stream *tex_char_stream_str(char *input, struct tex_char_stream *next){
+	struct tex_char_stream *i = malloc(sizeof(*i));
 	assert(i);
 
-	*i = (struct tex_input){TEX_STRING, .name="", .line=0, .col=0, .str=input, .next=next};
+	*i = (struct tex_char_stream){TEX_STRING, .name="", .line=0, .col=0, .str=input, .next=next};
 	return i;
 }
 
-void tex_input_after(struct tex_parser *p, char *input){
+void tex_char_stream_after(struct tex_parser *p, char *input){
 	assert(p);
-	if(p->input == NULL) {
-		p->input = tex_input_str(input, NULL);
+	if(p->char_stream == NULL) {
+		p->char_stream = tex_char_stream_str(input, NULL);
 	} else {
-		struct tex_input *i = p->input;
+		struct tex_char_stream *i = p->char_stream;
 		while(i->next != NULL) i = i->next;
-		i->next = tex_input_str(input, NULL);
+		i->next = tex_char_stream_str(input, NULL);
 	}
 }
 
-void tex_input_before(struct tex_parser *p, char *input){
+void tex_char_stream_before(struct tex_parser *p, char *input){
 	assert(p);
-	p->input = tex_input_str(input, p->input);
+	p->char_stream = tex_char_stream_str(input, p->char_stream);
 }
 
 void tex_init_parser(struct tex_parser *p, char *input){
@@ -90,7 +90,7 @@ void tex_init_parser(struct tex_parser *p, char *input){
 	p->cat['%'] = TEX_COMMENT;
 	p->cat[127] = TEX_INVALID;
 
-	tex_input_before(p, input);
+	tex_char_stream_before(p, input);
 }
 
 void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_macro)){
@@ -179,7 +179,7 @@ static void print_token_list(struct tex_token *tl) {
 */
 
 void tex_handle_macro_par(struct tex_parser* p, struct tex_macro m){
-	tex_input_before(p, "PAR bitch");
+	tex_char_stream_before(p, "PAR bitch");
 }
 
 //Handle \def macros
@@ -239,36 +239,45 @@ char *tex_read_control_sequence(struct tex_parser *p) {
 
 //Unread the last character
 void tex_unread_char(struct tex_parser *p) {
-	assert(p && p->input);
-	assert(!p->input->has_next_char);
-	p->input->has_next_char = TRUE;
+	assert(p && p->char_stream);
+	assert(!p->char_stream->has_next_char);
+	p->char_stream->has_next_char = TRUE;
+	if(p->char_stream->next_char == '\n')
+		p->char_stream->line--;
+		//NOTE: this doesn't set the correct column, but I don't think it should matter
 }
 
 struct tex_token tex_read_char(struct tex_parser *p) {
 	char c;
 
 	assert(p);
-	if(p->input == NULL)
+	if(p->char_stream == NULL)
 		return (struct tex_token){TEX_INVALID};
 
-	if(p->input->has_next_char){
-		p->input->has_next_char = FALSE;
-		c = p->input->next_char;
+	if(p->char_stream->has_next_char){
+		p->char_stream->has_next_char = FALSE;
+		c = p->char_stream->next_char;
 	} else {
-		assert(p->input->type == TEX_STRING);
+		assert(p->char_stream->type == TEX_STRING);
 		//TODO: handle file inputs
 
-		if(*p->input->str == '\0') {
-			struct tex_input *old = p->input;
-			p->input = p->input->next;
+		if(*p->char_stream->str == '\0') {
+			struct tex_char_stream *old = p->char_stream;
+			p->char_stream = p->char_stream->next;
 			free(old);
-			if(p->input == NULL)
+			if(p->char_stream == NULL)
 				return (struct tex_token){TEX_INVALID};
 		}
 
-		c = *(p->input->str++);
-		p->input->next_char = c;
+		c = *(p->char_stream->str++);
+		p->char_stream->next_char = c;
 	}
+
+	if(c == '\n'){
+		p->char_stream->line++;
+		p->char_stream->col=0;
+	}else
+		p->char_stream->col++;
 
 	char cat = p->cat[(size_t)c];
 	assert(cat <= TEX_CAT_NUM);
