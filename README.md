@@ -6,7 +6,7 @@ A C library that parses and executes TeX style macros. This is useful for conver
 
 Basic usage. Execute two source files in the same content:
 
-```
+```C
     int main(){
         // Create tex context
         tex_parser parser = tex_init();
@@ -15,6 +15,7 @@ Basic usage. Execute two source files in the same content:
         tex_source(parser, "preamble.tex");
         tex_source(parser, "example.tex");
     }
+```
 
 Create a programmatic macro:
 
