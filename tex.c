@@ -40,6 +40,30 @@ void tex_token_free(struct tex_token t) {
 		free(t.s);
 }
 
+struct tex_input *tex_input_str(char *input, struct tex_input *next){
+	struct tex_input *i = malloc(sizeof(*i));
+	assert(i);
+
+	*i = (struct tex_input){TEX_STRING, .name="", .line=0, .col=0, .str=input, .next=next};
+	return i;
+}
+
+void tex_input_after(struct tex_parser *p, char *input){
+	assert(p);
+	if(p->input == NULL) {
+		p->input = tex_input_str(input, NULL);
+	} else {
+		struct tex_input *i = p->input;
+		while(i->next != NULL) i = i->next;
+		i->next = tex_input_str(input, NULL);
+	}
+}
+
+void tex_input_before(struct tex_parser *p, char *input){
+	assert(p);
+	p->input = tex_input_str(input, p->input);
+}
+
 void tex_init_parser(struct tex_parser *p, char *input){
 	char c;
 
@@ -66,10 +90,7 @@ void tex_init_parser(struct tex_parser *p, char *input){
 	p->cat['%'] = TEX_COMMENT;
 	p->cat[127] = TEX_INVALID;
 
-	p->input = malloc(sizeof(*p->input));
-	assert(p->input);
-
-	*p->input = (struct tex_input){TEX_STRING, .name="", .line=0, .col=0, .str=input, .next=NULL};
+	tex_input_before(p, input);
 }
 
 void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_macro)){
@@ -158,7 +179,7 @@ static void print_token_list(struct tex_token *tl) {
 */
 
 void tex_handle_macro_par(struct tex_parser* p, struct tex_macro m){
-	//TODO
+	tex_input_before(p, "PAR bitch");
 }
 
 //Handle \def macros
