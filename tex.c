@@ -57,25 +57,57 @@ void tex_set_handler(struct tex_parser *p, enum tex_category type, void *handler
 	p->handler[type] = handler;
 }
 
-void tex_define_macro_func(struct tex_parser *p, char *macro, struct tex_token (*handler)(struct tex_parser*, struct tex_macro)){
+void tex_define_macro_func(struct tex_parser *p, char *cs, struct tex_token (*handler)(struct tex_parser*, struct tex_macro)){
 	assert(p);
 	assert(p->macros_n < MACRO_MAX);
 
-	p->macros[p->macros_n++] = (struct tex_macro){macro, .handler=handler};
+	p->macros[p->macros_n++] = (struct tex_macro){cs, .handler=handler};
+}
+
+//Parses macro arguments from parser input based on the given arglist and writes the
+//arguments to the supplied buffer, which must be large enough to accomidate all numbered
+//arguments in the arglist
+void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, char **args) {
+
+}
+
+//Returns an arglist parsed from the parser input. This is what would follow a \def, as in
+//\def\cs<arglist>{<replacement>}
+struct tex_token *tex_parse_arglist(struct tex_parser *p) {
+	return NULL;
+}
+
+//Reads one balanced block of tokens, or just the next token if not a block
+struct tex_token *tex_read_block(struct tex_parser *p) {
+	return NULL;
 }
 
 //Handle a general purpose macro, such as those previously defined by \def
 struct tex_token tex_handle_macro_general(struct tex_parser* p, struct tex_macro m){
-	//TODO: expand macro if necessary, otherwise just quit
 	//TODO: parse arguments base on input list
 	return (struct tex_token){TEX_OTHER, .c='%'};
 }
 
-void tex_define_macro(struct tex_parser *p, char *macro, char *arglist, char *replacement) {
+//Handle \def macros
+struct tex_token tex_handle_macro_def(struct tex_parser* p, struct tex_macro m){
+	struct tex_token cs = tex_read_token(p);
+	fprintf(stderr, "Got token = {%i, '%c', \"%s\"}\n", cs.cat, cs.c, cs.s);
+	assert(cs.cat == TEX_ESC);
+
+	fprintf(stderr, "Got CS = '%s'\n", cs.s);
+	struct tex_token *arglist = tex_parse_arglist(p);
+	struct tex_token *replacement = tex_read_block(p);
+
+	tex_define_macro(p, cs.s, arglist, replacement);
+
+	return (struct tex_token){TEX_INVALID};
+}
+
+void tex_define_macro(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement) {
 	assert(p);
 	assert(p->macros_n < MACRO_MAX);
 
-	p->macros[p->macros_n++] = (struct tex_macro){macro, arglist, replacement, tex_handle_macro_general};
+	p->macros[p->macros_n++] = (struct tex_macro){cs, arglist, replacement, tex_handle_macro_general};
 }
 
 char *tex_read_control_sequence(struct tex_parser *p) {
@@ -242,11 +274,11 @@ struct tex_token handle_esc(struct tex_parser *p, struct tex_token t){
 	//Look for user defined macro
 	size_t n = 0;
 	while(n < p->macros_n)
-		if(strcmp(p->macros[n].macro, t.s) == 0) break;
+		if(strcmp(p->macros[n].cs, t.s) == 0) break;
 		else n++;
 
 	if(n == p->macros_n){
-		printf("ERROR: %s not defined", t.s);
+		fprintf(stderr, "ERROR: %s not defined\n", t.s);
 		return (struct tex_token){TEX_INVALID}; //Indicates this handler returned no input
 	}
 
@@ -258,12 +290,15 @@ int main(int argc, const char *argv[]) {
 
 	struct tex_parser p;
 
-	char *input = "\\TeX\\ %\\Bango\n\nSome     more        text\n\nPP 2\n";
+	char *input =
+		"\\def\\testa{Test A}\n"
+		"\\def\\test#1#2{Test #1 #2}\n\n"
+		"\\testa\n\n"
+		"\\test B {CC}\n";
+
 	tex_init_parser(&p, input);
 
-	tex_define_macro(&p, " ", "", " ");
-	tex_define_macro(&p, "TeX", "", "TexMacro");
-	tex_define_macro(&p, "Bango", "", "Bongo");
+	tex_define_macro_func(&p, "def", tex_handle_macro_def);
 
 	tex_set_handler(&p, TEX_ESC, handle_esc);
 	tex_set_handler(&p, TEX_SPACE, handle_space);

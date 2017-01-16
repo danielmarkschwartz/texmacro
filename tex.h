@@ -45,7 +45,8 @@ struct tex_token {
 };
 
 struct tex_macro {
-	char *macro, *arglist, *replacement;
+	char *cs; //Macro control sequence string
+	struct tex_token *arglist, *replacement; //TEX_INVALID terminated token lists
 	struct tex_token (*handler)(struct tex_parser *, struct tex_macro);
 };
 
