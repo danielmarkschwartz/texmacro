@@ -107,79 +107,76 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, char *
 }
 
 
+struct tex_token_stream *tex_token_stream_alloc() {
+	struct tex_token_stream *ts = calloc(1,sizeof(*ts));
+	assert(ts);
+	return ts;
+}
+
+void tex_token_stream_append(struct tex_token_stream *ts, struct tex_token t){
+	assert(ts);
+	while(ts->next != NULL) ts = ts->next;
+	if(ts->n >= MAX_TOKEN_LIST) {
+		ts->next = tex_token_stream_alloc();
+		ts = ts->next;
+	}
+	ts->tokens[ts->n++] = t;
+}
+
+void tex_token_stream_before(struct tex_parser *p, struct tex_token_stream *ts) {
+	assert(p && ts);
+
+	struct tex_token_stream *newts = tex_token_stream_alloc();
+	*newts = *ts;
+
+	newts->next = p->token_stream;
+	p->token_stream = newts;
+}
+
 //Returns an arglist parsed from the parser input. This is what would follow a \def, as in
 //\def\cs<arglist>{<replacement>}
-struct tex_token *tex_parse_arglist(struct tex_parser *p) {
-	struct tex_token *tl = malloc(sizeof(*tl) * (MAX_TOKEN_LIST+1));
-	assert(tl);
+struct tex_token_stream *tex_parse_arglist(struct tex_parser *p) {
+	struct tex_token_stream *ts = tex_token_stream_alloc();
 
-	//TODO: parse arguments base on input list
 	int pn = 1; //parameter number
-	size_t n = 0;
 	struct tex_token t;
 	while((t = tex_read_token(p)).cat != TEX_BEGIN_GROUP) {
-		assert(n < MAX_TOKEN_LIST);
 		if(t.cat == TEX_INVALID) break;
-
-		if(t.cat == TEX_PARAMETER) {
-			assert(t.c == pn++);
-		}
-
-		tl[n++] = t;
+		assert(t.cat != TEX_PARAMETER || t.c == pn++);
+		tex_token_stream_append(ts, t);
 	}
 
-	tl[n] = (struct tex_token){TEX_INVALID};
-
-	//We can do this after tex_read_token, because this must be a TEX_BEGIN_GROUP, not TEX_ESC
-	//which would mess up the parse by droping characters
+	//TODO: make this a token_unread at some point
 	tex_unread_char(p);
 
-	return tl;
+	return ts;
 }
 
 //Reads one balanced block of tokens, or NULL if next token is not a TEX_BEGIN_GROUP
-struct tex_token *tex_read_block(struct tex_parser *p) {
-	struct tex_token *tl = malloc(sizeof(*tl) * (MAX_TOKEN_LIST+1));
-	assert(tl);
-
+struct tex_token_stream *tex_read_block(struct tex_parser *p) {
 	struct tex_token t = tex_read_token(p);
 	if(t.cat != TEX_BEGIN_GROUP) return NULL;
 
-	size_t n = 0;
-	while((t = tex_read_token(p)).cat != TEX_END_GROUP) {
-		assert(n < MAX_TOKEN_LIST);
-		tl[n++] = t;
-	}
+	struct tex_token_stream *ts = tex_token_stream_alloc();
 
-	tl[n] = (struct tex_token){TEX_INVALID};
+	while((t = tex_read_token(p)).cat != TEX_END_GROUP)
+		tex_token_stream_append(ts, t);
 
-	return tl;
+	return ts;
 }
 
 //Handle a general purpose macro, such as those previously defined by \def
 void tex_handle_macro_general(struct tex_parser* p, struct tex_macro m){
-	//TODO:
+	//TODO: handle parameters
+	tex_token_stream_before(p, m.replacement);
 }
-
-/*
-static void print_token_list(struct tex_token *tl) {
-	if(tl == NULL){
-		fprintf(stderr, "(null)");
-		return;
-	}
-
-	while(tl->cat != TEX_INVALID) {
-		if(tl->cat == TEX_ESC)
-			fprintf(stderr, "(%i, %s)", tl->cat, tl->s);
-		else
-			fprintf(stderr, "(%i, %c)", tl->cat, tl->c);
-		tl++;
-	}
-}
-*/
 
 void tex_handle_macro_par(struct tex_parser* p, struct tex_macro m){
-	tex_char_stream_before(p, "PAR bitch");
+	//TODO: make this prepend a tex_token_stream to the parser
+	struct tex_token_stream *ts = tex_token_stream_alloc();
+	tex_token_stream_append(ts, (struct tex_token){TEX_OTHER, .c='\n'});
+	tex_token_stream_append(ts, (struct tex_token){TEX_OTHER, .c='\n'});
+	tex_token_stream_before(p, ts);
 }
 
 //Handle \def macros
@@ -187,14 +184,15 @@ void tex_handle_macro_def(struct tex_parser* p, struct tex_macro m){
 	struct tex_token cs = tex_read_token(p);
 	assert(cs.cat == TEX_ESC);
 
-	struct tex_token *arglist = tex_parse_arglist(p);
-	struct tex_token *replacement = tex_read_block(p);
+	struct tex_token_stream *arglist = tex_parse_arglist(p);
+	struct tex_token_stream *replacement = tex_read_block(p);
 	assert(replacement);
 
 	tex_define_macro(p, cs.s, arglist, replacement);
 }
 
-void tex_define_macro(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement) {
+void tex_define_macro(struct tex_parser *p, char *cs,struct tex_token_stream *arglist,
+		struct tex_token_stream *replacement) {
 	assert(p);
 	assert(p->macros_n < MACRO_MAX);
 
@@ -287,6 +285,19 @@ struct tex_token tex_read_char(struct tex_parser *p) {
 
 //Read the next token from the parser input
 struct tex_token tex_read_token(struct tex_parser *p) {
+
+	//Try to read a token from the token stream
+	while(p->token_stream != NULL){
+		if(p->token_stream->i >= p->token_stream->n) {
+			p->token_stream = p->token_stream->next;
+			continue;
+		}
+
+		return p->token_stream->tokens[p->token_stream->i++];
+	}
+
+
+	//Otherwise, try to parse at token from the character stream
 	struct tex_token t = tex_read_char(p);
 
 	assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
