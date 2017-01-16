@@ -65,6 +65,8 @@ struct tex_input {
 		FILE *file;
 	};
 	struct tex_input *next;
+	char next_char;
+	int has_next_char;
 };
 
 struct tex_parser {
@@ -77,9 +79,6 @@ struct tex_parser {
 	size_t macros_n;
 
 	enum tex_state state;
-
-	char next_char;
-	int has_next_char;
 };
 
 void tex_init_parser(struct tex_parser *p, char *input);

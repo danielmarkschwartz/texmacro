@@ -218,20 +218,22 @@ char *tex_read_control_sequence(struct tex_parser *p) {
 
 //Unread the last character
 void tex_unread_char(struct tex_parser *p) {
-	assert(!p->has_next_char);
-	p->has_next_char = TRUE;
+	assert(p && p->input);
+	assert(!p->input->has_next_char);
+	p->input->has_next_char = TRUE;
 }
 
 struct tex_token tex_read_char(struct tex_parser *p) {
 	char c;
 
-	if(p->has_next_char){
-		p->has_next_char = FALSE;
-		c = p->next_char;
-	} else {
-		if(p->input == NULL)
-			return (struct tex_token){TEX_INVALID};
+	assert(p);
+	if(p->input == NULL)
+		return (struct tex_token){TEX_INVALID};
 
+	if(p->input->has_next_char){
+		p->input->has_next_char = FALSE;
+		c = p->input->next_char;
+	} else {
 		assert(p->input->type == TEX_STRING);
 		//TODO: handle file inputs
 
@@ -244,7 +246,7 @@ struct tex_token tex_read_char(struct tex_parser *p) {
 		}
 
 		c = *(p->input->str++);
-		p->next_char = c;
+		p->input->next_char = c;
 	}
 
 	char cat = p->cat[(size_t)c];
