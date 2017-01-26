@@ -1,8 +1,8 @@
 /* tex.c
-*
-* A basic, extensibile, TeX parser written in C.
-*
-*/
+ *
+ * A basic, extensibile, TeX parser written in C.
+ *
+ */
 
 #define TRUE 1
 #define FALSE 0
@@ -100,10 +100,42 @@ void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struc
 	p->macros[p->macros_n++] = (struct tex_macro){cs, .handler=handler};
 }
 
+struct tex_token tex_token_stream_read(struct tex_token_stream **ts) {
+	assert(ts);
+
+	while(*ts != NULL){
+		if((*ts)->i >= (*ts)->n) {
+			(*ts) = (*ts)->next;
+			continue;
+		}
+		return (*ts)->tokens[(*ts)->i++];
+	}
+
+	return (struct tex_token){TEX_INVALID};
+}
+
+
 //Parses macro arguments from parser input based on the given arglist and writes the
 //arguments to the supplied buffer, which must be large enough to accomidate all numbered
 //arguments in the arglist
-void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, char **args) {
+void tex_parse_arguments(struct tex_parser *p, struct tex_token_stream *arglist, char **args) {
+	//TODO: copy arglist
+	struct tex_token t, a;
+	while((a = tex_token_stream_read(&arglist)).cat != TEX_PARAMETER){
+		if(a.cat == TEX_INVALID) return;
+
+		t = tex_read_token(p);
+		if(a.cat == TEX_INVALID) break;
+
+		assert(a.cat == t.cat && a.c == t.c);
+	}
+
+	//TODO: determine if argument is bounded or not
+	//TODO: if not bounded, read one token or group
+	//TODO: else (is bounded) keep reading characters
+	//TODO   if this character matches a boundary start, keep track
+	//TODO   if this character doesn't match a boundry, drop that track
+	//TODO   if this is the end of the boundary
 }
 
 
@@ -165,14 +197,17 @@ struct tex_token_stream *tex_read_block(struct tex_parser *p) {
 	return ts;
 }
 
+
 //Handle a general purpose macro, such as those previously defined by \def
 void tex_handle_macro_general(struct tex_parser* p, struct tex_macro m){
 	//TODO: handle parameters
+
+	char *parameters[9];
+	tex_parse_arguments(p, m.arglist, parameters);
 	tex_token_stream_before(p, m.replacement);
 }
 
 void tex_handle_macro_par(struct tex_parser* p, struct tex_macro m){
-	//TODO: make this prepend a tex_token_stream to the parser
 	struct tex_token_stream *ts = tex_token_stream_alloc();
 	tex_token_stream_append(ts, (struct tex_token){TEX_OTHER, .c='\n'});
 	tex_token_stream_append(ts, (struct tex_token){TEX_OTHER, .c='\n'});
@@ -287,18 +322,11 @@ struct tex_token tex_read_char(struct tex_parser *p) {
 struct tex_token tex_read_token(struct tex_parser *p) {
 
 	//Try to read a token from the token stream
-	while(p->token_stream != NULL){
-		if(p->token_stream->i >= p->token_stream->n) {
-			p->token_stream = p->token_stream->next;
-			continue;
-		}
-
-		return p->token_stream->tokens[p->token_stream->i++];
-	}
-
+	struct tex_token t = tex_token_stream_read(&p->token_stream);
+	if(t.cat != TEX_INVALID) return t;
 
 	//Otherwise, try to parse at token from the character stream
-	struct tex_token t = tex_read_char(p);
+	t = tex_read_char(p);
 
 	assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
 
@@ -382,7 +410,7 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 }
 
 void tex_free_parser(struct tex_parser *p){
-	//Nothing to be done, yet
+	//TODO: actually free the parser
 }
 
 int main(int argc, const char *argv[]) {
@@ -391,10 +419,8 @@ int main(int argc, const char *argv[]) {
 	struct tex_parser p;
 
 	char *input =
-		"\\def\\testa{Test A}\n"
-		"\\def\\test#1#2{Test #1 #2}\n\n"
-		"\\testa\n\n"
-		"\\test B {CC}\n";
+		"\\def\\section is #1\\par{<h2>#1</h2>}\n"
+		"\\section is This as test section\n\n";
 
 	tex_init_parser(&p, input);
 	tex_define_macro_func(&p, "def", tex_handle_macro_def);
