@@ -5,7 +5,6 @@
 
 //Max length of control sequence
 #define CS_MAX 1024
-#define MAX_TOKEN_LIST 1024
 
 struct tex_parser;
 
@@ -45,11 +44,13 @@ struct tex_token {
 		char c;
 		char *s;
 	};
+
+	struct tex_token *next, *prev;
 };
 
 struct tex_macro {
 	char *cs; //Macro control sequence string
-	struct tex_token_stream *arglist, *replacement; //TEX_INVALID terminated token lists
+	struct tex_token *arglist, *replacement; //TEX_INVALID terminated token lists
 	void (*handler)(struct tex_parser *, struct tex_macro);
 };
 
@@ -71,15 +72,9 @@ struct tex_char_stream {
 	int has_next_char;
 };
 
-struct tex_token_stream {
-	struct tex_token tokens[MAX_TOKEN_LIST];
-	size_t n, i;
-	struct tex_token_stream *next;
-};
-
 struct tex_parser {
 	struct tex_char_stream *char_stream;	//Stream of input characters
-	struct tex_token_stream *token_stream;	//Stream of saved tokens (read before character input)
+	struct tex_token *token;	//Stream of saved tokens (read before character input)
 
 	char cat[128];  //Category code for ASCII characters
 			//Note: 0 (esc) is switched with 12 (other)
@@ -96,11 +91,12 @@ void tex_free_parser(struct tex_parser *p);
 struct tex_token tex_read_token(struct tex_parser *p);
 struct tex_token tex_read_char(struct tex_parser *p);
 void tex_unread_char(struct tex_parser *p);
-void tex_define_macro(struct tex_parser *p, char *cs,struct tex_token_stream *arglist,struct tex_token_stream *replacement);
+void tex_define_macro(struct tex_parser *p, char *cs,struct tex_token *arglist,struct tex_token *replacement);
 char *tex_read_control_sequence(struct tex_parser *p);
 
 //Token related functions
-void tex_token_free(struct tex_token t);
-struct tex_token_stream *tex_token_stream_alloc();
-struct tex_token tex_token_stream_read(struct tex_token_stream **ts);
-void tex_token_stream_append(struct tex_token_stream *ts, struct tex_token t);
+struct tex_token *tex_token_alloc(struct tex_token t);
+void tex_token_free(struct tex_token *t);
+struct tex_token *tex_token_join(struct tex_token *before, struct tex_token *after);
+struct tex_token *tex_token_append(struct tex_token *before, struct tex_token t);
+struct tex_token *tex_token_prepend(struct tex_token t, struct tex_token *after);

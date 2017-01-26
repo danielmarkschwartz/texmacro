@@ -1,40 +1,51 @@
 #include <assert.h>
+#include <string.h>
 
 #include "tex.h"
 
-void tex_token_free(struct tex_token t) {
+struct tex_token *tex_token_alloc(struct tex_token t) {
+	struct tex_token *ret = malloc(sizeof(*ret));
+	assert(ret != NULL);
+
+	*ret = t;
 	if(t.cat == TEX_ESC)
-		free(t.s);
+		ret->s = strdup(t.s);
+
+	return ret;
 }
 
-struct tex_token_stream *tex_token_stream_alloc() {
-	struct tex_token_stream *ts = calloc(1,sizeof(*ts));
-	assert(ts);
-	return ts;
+void tex_token_free(struct tex_token *t) {
+	if(t == NULL) return;
+
+	if(t->cat == TEX_ESC)
+		free(t->s);
+
+	//TODO: this is a bad idea
+	tex_token_free(t->next);
+	free(t);
 }
 
+struct tex_token *tex_token_join(struct tex_token *before, struct tex_token *after) {
+	if(before == NULL) return after;
+	if(after == NULL) return before;
 
-struct tex_token tex_token_stream_read(struct tex_token_stream **ts) {
-	assert(ts);
+	struct tex_token *ret = before;
 
-	while(*ts != NULL){
-		if((*ts)->i >= (*ts)->n) {
-			(*ts) = (*ts)->next;
-			continue;
-		}
-		return (*ts)->tokens[(*ts)->i++];
-	}
+	while(before->next != NULL)
+		before = before->next;
 
-	return (struct tex_token){TEX_INVALID};
+	assert(after->prev == NULL);
+
+	before->next = after;
+	after->prev = before;
+
+	return ret;
 }
 
-void tex_token_stream_append(struct tex_token_stream *ts, struct tex_token t){
-	assert(ts);
-	while(ts->next != NULL) ts = ts->next;
-	if(ts->n >= MAX_TOKEN_LIST) {
-		ts->next = tex_token_stream_alloc();
-		ts = ts->next;
-	}
-	ts->tokens[ts->n++] = t;
+struct tex_token *tex_token_append(struct tex_token *before, struct tex_token t) {
+	return tex_token_join(before, tex_token_alloc(t));
 }
 
+struct tex_token *tex_token_prepend(struct tex_token t, struct tex_token *after) {
+	return tex_token_join(tex_token_alloc(t), after);
+}
