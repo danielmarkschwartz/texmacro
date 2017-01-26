@@ -1,5 +1,7 @@
-#ifndef TEX_H
-#define TEX_H
+#pragma once
+
+#include <stdio.h>
+#include <stdlib.h>
 
 //Max length of control sequence
 #define CS_MAX 1024
@@ -97,4 +99,8 @@ void tex_unread_char(struct tex_parser *p);
 void tex_define_macro(struct tex_parser *p, char *cs,struct tex_token_stream *arglist,struct tex_token_stream *replacement);
 char *tex_read_control_sequence(struct tex_parser *p);
 
-#endif /* end of include guard: TEX_H */
+//Token related functions
+void tex_token_free(struct tex_token t);
+struct tex_token_stream *tex_token_stream_alloc();
+struct tex_token tex_token_stream_read(struct tex_token_stream **ts);
+void tex_token_stream_append(struct tex_token_stream *ts, struct tex_token t);

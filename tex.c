@@ -35,11 +35,6 @@ void handler(int sig) {
 }
 
 
-void tex_token_free(struct tex_token t) {
-	if(t.cat == TEX_ESC)
-		free(t.s);
-}
-
 struct tex_char_stream *tex_char_stream_str(char *input, struct tex_char_stream *next){
 	struct tex_char_stream *i = malloc(sizeof(*i));
 	assert(i);
@@ -100,21 +95,6 @@ void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struc
 	p->macros[p->macros_n++] = (struct tex_macro){cs, .handler=handler};
 }
 
-struct tex_token tex_token_stream_read(struct tex_token_stream **ts) {
-	assert(ts);
-
-	while(*ts != NULL){
-		if((*ts)->i >= (*ts)->n) {
-			(*ts) = (*ts)->next;
-			continue;
-		}
-		return (*ts)->tokens[(*ts)->i++];
-	}
-
-	return (struct tex_token){TEX_INVALID};
-}
-
-
 //Parses macro arguments from parser input based on the given arglist and writes the
 //arguments to the supplied buffer, which must be large enough to accomidate all numbered
 //arguments in the arglist
@@ -139,22 +119,7 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token_stream *arglist,
 }
 
 
-struct tex_token_stream *tex_token_stream_alloc() {
-	struct tex_token_stream *ts = calloc(1,sizeof(*ts));
-	assert(ts);
-	return ts;
-}
-
-void tex_token_stream_append(struct tex_token_stream *ts, struct tex_token t){
-	assert(ts);
-	while(ts->next != NULL) ts = ts->next;
-	if(ts->n >= MAX_TOKEN_LIST) {
-		ts->next = tex_token_stream_alloc();
-		ts = ts->next;
-	}
-	ts->tokens[ts->n++] = t;
-}
-
+//TODO: this should be refactored in to tex_input_ts and a tex_token_stream_* function
 void tex_token_stream_before(struct tex_parser *p, struct tex_token_stream *ts) {
 	assert(p && ts);
 
