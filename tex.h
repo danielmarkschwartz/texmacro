@@ -100,3 +100,5 @@ void tex_token_free(struct tex_token *t);
 struct tex_token *tex_token_join(struct tex_token *before, struct tex_token *after);
 struct tex_token *tex_token_append(struct tex_token *before, struct tex_token t);
 struct tex_token *tex_token_prepend(struct tex_token t, struct tex_token *after);
+int tex_token_eq(struct tex_token a, struct tex_token b);
+void tex_token_print(struct tex_token t);

@@ -7,9 +7,14 @@ struct tex_token *tex_token_alloc(struct tex_token t) {
 	struct tex_token *ret = malloc(sizeof(*ret));
 	assert(ret != NULL);
 
-	*ret = t;
+	ret->cat = t.cat;
 	if(t.cat == TEX_ESC)
 		ret->s = strdup(t.s);
+	else
+		ret->c = t.c;
+
+	ret->next = 0;
+	ret->prev = 0;
 
 	return ret;
 }
@@ -34,8 +39,6 @@ struct tex_token *tex_token_join(struct tex_token *before, struct tex_token *aft
 	while(before->next != NULL)
 		before = before->next;
 
-	assert(after->prev == NULL);
-
 	before->next = after;
 	after->prev = before;
 
@@ -48,4 +51,19 @@ struct tex_token *tex_token_append(struct tex_token *before, struct tex_token t)
 
 struct tex_token *tex_token_prepend(struct tex_token t, struct tex_token *after) {
 	return tex_token_join(tex_token_alloc(t), after);
+}
+
+void tex_token_print(struct tex_token t) {
+	if(t.cat == TEX_ESC)
+		printf("\\%s",t.s);
+	else
+		printf("%c_%i", t.c, t.cat);
+}
+
+int tex_token_eq(struct tex_token a, struct tex_token b) {
+	if(a.cat != b.cat) return 0;
+	if(a.cat == TEX_ESC) {
+		return strcmp(a.s, b.s) == 0;
+	}
+	return a.c == b.c;
 }

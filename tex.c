@@ -59,6 +59,26 @@ void tex_char_stream_before(struct tex_parser *p, char *input){
 	p->char_stream = tex_char_stream_str(input, p->char_stream);
 }
 
+void tex_input_token(struct tex_parser *p, struct tex_token t) {
+
+	p->token = tex_token_prepend(t, p->token);
+}
+
+//Input n tokens from token stream, or all of them if n < 0
+void tex_input_tokens(struct tex_parser *p, struct tex_token *ts, size_t n) {
+	if(n == 0) return;
+
+	size_t x = n;
+	while(ts && ts->next && --x > 0)
+		ts = ts->next;
+
+	while(n-- > 0) {
+		tex_input_token(p, *ts);
+		ts = ts->prev;
+	}
+
+}
+
 void tex_init_parser(struct tex_parser *p, char *input){
 	char c;
 
@@ -98,24 +118,69 @@ void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struc
 //Parses macro arguments from parser input based on the given arglist and writes the
 //arguments to the supplied buffer, which must be large enough to accomidate all numbered
 //arguments in the arglist
-void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, char **args) {
+//TODO: pass a new parser context, and set argument in the parser state
+void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, struct tex_token **args) {
 	struct tex_token t;
 	while(arglist && arglist->cat != TEX_PARAMETER){
 		t = tex_read_token(p);
+		//ERROR: premature end of input
 		if(t.cat == TEX_INVALID) break;
 
 		//TODO: this should throw an error
-		assert(arglist->cat == t.cat && arglist->c == t.c);
+		assert(tex_token_eq(*arglist, t));
 
 		arglist = arglist->next;
 	}
 
-	//TODO: determine if argument is bounded or not
-	//TODO: if not bounded, read one token or group
-	//TODO: else (is bounded) keep reading characters
-	//TODO   if this character matches a boundary start, keep track
-	//TODO   if this character doesn't match a boundry, drop that track
-	//TODO   if this is the end of the boundary
+	struct tex_token *bound_start = arglist;
+	size_t i = 0, /*arg number*/
+	       n = 0, /*bounding characters matched*/
+	       s = 0; /*start of rewind*/
+	while(arglist != NULL) {
+		t = tex_read_token(p);
+		assert(t.cat != TEX_INVALID); //ERROR: Premature end of input
+		assert(t.cat != TEX_PARAMETER); //ERROR: shouldn't find parameters here
+
+		if(arglist->cat == TEX_PARAMETER){
+			i++;
+			n = 0;
+			s = 0;
+			arglist = arglist->next;
+			bound_start = arglist;
+		}
+
+		if(arglist && tex_token_eq(*arglist, t)){
+			//Token matches bound, keep reading
+			arglist = arglist->next;
+			if(s == 0 && n > 0 && tex_token_eq(t, *bound_start))
+				s = n;
+			n++;
+		} else {
+			if(n == 0) {
+				//Just append the token if no match so far
+				args[i] = tex_token_append(args[i], t);
+			}else{
+				//Rewind to bound_start
+				arglist = bound_start;
+
+				//Copy s items (or all if no s) to the argument
+				s = s?s:n;
+				for(int t = s; t > 0; t--) {
+					args[i] = tex_token_append(args[i], *arglist);
+					arglist = arglist->next;
+				}
+
+				//Replay and uncopied items and this one
+				tex_input_token(p, t);
+				tex_input_tokens(p, arglist, n-s);
+
+				//Start looking for bound again
+				arglist = bound_start;
+				n = 0;
+				s = 0;
+			}
+		}
+	}
 }
 
 //Returns an arglist parsed from the parser input. This is what would follow a \def, as in
@@ -131,8 +196,7 @@ struct tex_token *tex_parse_arglist(struct tex_parser *p) {
 		ts = tex_token_append(ts, t);
 	}
 
-	//TODO: make this a token_unread at some point
-	tex_unread_char(p);
+	tex_input_token(p, t);
 
 	return ts;
 }
@@ -153,9 +217,15 @@ struct tex_token *tex_read_block(struct tex_parser *p) {
 
 //Handle a general purpose macro, such as those previously defined by \def
 void tex_handle_macro_general(struct tex_parser* p, struct tex_macro m){
-	char *parameters[9];
+	struct tex_token *parameters[9] = {};
 	tex_parse_arguments(p, m.arglist, parameters);
 	//TODO: handle parameters
+	fprintf(stderr, "got parameter: \"");
+	while(parameters[1]) {
+		fprintf(stderr, "%c", parameters[1]->c);
+		parameters[1] = parameters[1]->next;
+	}
+	fprintf(stderr, "\"\n");
 
 	p->token = tex_token_join(m.replacement, p->token);
 }
@@ -319,7 +389,8 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 
 	case TEX_ESC:
 		t.s = tex_read_control_sequence(p);
-		//fallthrough to default:
+		p->state = TEX_SKIPSPACE;
+		break;
 
 	default:
 		p->state = TEX_MIDLINE;
@@ -372,8 +443,12 @@ int main(int argc, const char *argv[]) {
 	struct tex_parser p;
 
 	char *input =
-		"\\def\\section is #1\\par{<h2>#1</h2>}\n"
-		"\\section is This as test section\n\n";
+		"\\def\\section is #1\\par{<h2>#1</h2>\\par}\n"
+		"\\section is This as test section\n\n"
+		"This is not\n"
+		"\\def\\test#1ababc{#1}\n"
+		"\\test abababc "
+		;
 
 	tex_init_parser(&p, input);
 	tex_define_macro_func(&p, "def", tex_handle_macro_def);
