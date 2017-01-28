@@ -11,9 +11,12 @@ Basic usage. Execute two source files in the same content:
         // Create tex context
         tex_parser parser = tex_init();
 
-        // Parse and "execute" TeX source, printing results to stdout
-        tex_source(parser, "preamble.tex");
-        tex_source(parser, "example.tex");
+        // Define input sources in reverse order
+        tex_input(parser, "example.tex");
+        tex_input(parser, "preamble.tex");
+
+	// Write output to stdout
+	tex_execute(parser, stdout);
     }
 ```
 

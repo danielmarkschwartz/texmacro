@@ -6,6 +6,9 @@
 //Max length of control sequence
 #define CS_MAX 1024
 
+#define TRUE 1
+#define FALSE 0
+
 struct tex_parser;
 
 enum tex_category {
@@ -76,23 +79,45 @@ struct tex_parser {
 	struct tex_char_stream *char_stream;	//Stream of input characters
 	struct tex_token *token;	//Stream of saved tokens (read before character input)
 
+	//TODO: This block should cascade base on block level
 	char cat[128];  //Category code for ASCII characters
 			//Note: 0 (esc) is switched with 12 (other)
 			//internally for simplicity
 	struct tex_macro macros[MACRO_MAX];
 	size_t macros_n;
+	//END block
 
+	//TODO: state should be part of the char_stream I think
 	enum tex_state state;
 };
 
-void tex_init_parser(struct tex_parser *p, char *input);
+//Parser related functions
+void tex_init_parser(struct tex_parser *p);
 void tex_parse(struct tex_parser *p, char *buf, size_t n);
 void tex_free_parser(struct tex_parser *p);
+
+void tex_input(struct tex_parser *p, char *filename);
+void tex_input_file(struct tex_parser *p, FILE *file);
+void tex_input_str(struct tex_parser *p, char *input);
+void tex_input_token(struct tex_parser *p, struct tex_token t);
+void tex_input_tokens(struct tex_parser *p, struct tex_token *ts, size_t n);
+
+void tex_define_macro(struct tex_parser *p, char *cs,struct tex_token *arglist,struct tex_token *replacement);
+void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_macro));
+void tex_handle_macro_par(struct tex_parser* p, struct tex_macro m);
+void tex_handle_macro_def(struct tex_parser* p, struct tex_macro m);
+
 struct tex_token tex_read_token(struct tex_parser *p);
 struct tex_token tex_read_char(struct tex_parser *p);
 void tex_unread_char(struct tex_parser *p);
-void tex_define_macro(struct tex_parser *p, char *cs,struct tex_token *arglist,struct tex_token *replacement);
 char *tex_read_control_sequence(struct tex_parser *p);
+void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, struct tex_token **args);
+struct tex_token *tex_parse_arglist(struct tex_parser *p);
+struct tex_token *tex_read_block(struct tex_parser *p);
+int tex_read(struct tex_parser *p, char *buf, int n);
+
+//Char stream related functions
+struct tex_char_stream *tex_char_stream_str(char *input, struct tex_char_stream *next);
 
 //Token related functions
 struct tex_token *tex_token_alloc(struct tex_token t);
