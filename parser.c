@@ -47,33 +47,37 @@ void tex_init_parser(struct tex_parser *p){
 	assert(p);
 	memset(p, 0, sizeof *p);
 
+	p->block = malloc(sizeof *p->block);
+	assert(p->block);
+	memset(p->block, 0, sizeof *p->block);
+
 	//Set default character codes
 	//Note: 0 -> other, 12 -> esc internally
-	p->cat['{'] = TEX_BEGIN_GROUP;
-	p->cat['}'] = TEX_END_GROUP;
-	p->cat['$'] = TEX_MATH;
-	p->cat['&'] = TEX_ALIGN;
-	p->cat['\n'] = TEX_EOL;
-	p->cat['#'] = TEX_PARAMETER;
-	p->cat['^'] = TEX_SUPER;
-	p->cat['_'] = TEX_SUB;
-	p->cat['\0'] = TEX_INVALID;
-	p->cat[' '] = TEX_SPACE;
-	p->cat['\\'] = TEX_ESC;
-	p->cat['~'] = TEX_ACTIVE;
-	p->cat['%'] = TEX_COMMENT;
-	p->cat[127] = TEX_INVALID;
+	p->block->cat['{'] = TEX_BEGIN_GROUP;
+	p->block->cat['}'] = TEX_END_GROUP;
+	p->block->cat['$'] = TEX_MATH;
+	p->block->cat['&'] = TEX_ALIGN;
+	p->block->cat['\n'] = TEX_EOL;
+	p->block->cat['#'] = TEX_PARAMETER;
+	p->block->cat['^'] = TEX_SUPER;
+	p->block->cat['_'] = TEX_SUB;
+	p->block->cat['\0'] = TEX_INVALID;
+	p->block->cat[' '] = TEX_SPACE;
+	p->block->cat['\\'] = TEX_ESC;
+	p->block->cat['~'] = TEX_ACTIVE;
+	p->block->cat['%'] = TEX_COMMENT;
+	p->block->cat[127] = TEX_INVALID;
 
 	char c;
-	for (c = 'A'; c <= 'Z'; c++) p->cat[(size_t)c] = TEX_LETTER;
-	for (c = 'a'; c <= 'z'; c++) p->cat[(size_t)c] = TEX_LETTER;
+	for (c = 'A'; c <= 'Z'; c++) p->block->cat[(size_t)c] = TEX_LETTER;
+	for (c = 'a'; c <= 'z'; c++) p->block->cat[(size_t)c] = TEX_LETTER;
 }
 
 void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_macro)){
 	assert(p);
-	assert(p->macros_n < MACRO_MAX);
+	assert(p->block->macros_n < MACRO_MAX);
 
-	p->macros[p->macros_n++] = (struct tex_macro){cs, .handler=handler};
+	p->block->macros[p->block->macros_n++] = (struct tex_macro){cs, .handler=handler};
 }
 
 //Parses macro arguments from parser input based on the given arglist and writes the
@@ -211,9 +215,9 @@ void tex_handle_macro_def(struct tex_parser* p, struct tex_macro m){
 
 void tex_define_macro(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement) {
 	assert(p);
-	assert(p->macros_n < MACRO_MAX);
+	assert(p->block->macros_n < MACRO_MAX);
 
-	p->macros[p->macros_n++] = (struct tex_macro){cs, arglist, replacement, tex_handle_macro_general};
+	p->block->macros[p->block->macros_n++] = (struct tex_macro){cs, arglist, replacement, tex_handle_macro_general};
 }
 
 char *tex_read_control_sequence(struct tex_parser *p) {
@@ -294,7 +298,7 @@ struct tex_token tex_read_char(struct tex_parser *p) {
 	}else
 		p->char_stream->col++;
 
-	char cat = p->cat[(size_t)c];
+	char cat = p->block->cat[(size_t)c];
 	assert(cat <= TEX_CAT_NUM);
 
 	return (struct tex_token){cat, .c=c};
@@ -360,18 +364,43 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 	return t;
 }
 
-void tex_macro_replace(struct tex_parser *p, struct tex_token t) {
-	size_t n = 0;
-	while(n < p->macros_n)
-		if(strcmp(p->macros[n].cs, t.s) == 0) break;
-		else n++;
+void tex_block_enter(struct tex_parser *p) {
+	struct tex_block *b = malloc(sizeof *b);
+	assert(b);
+	memset(b, 0, sizeof *b);
 
-	if(n == p->macros_n){
-		fprintf(stderr, "ERROR: %s not defined\n", t.s);
-	} else {
-		assert(p->macros[n].handler);
-		p->macros[n].handler(p, p->macros[n]);
+	b->parent = p->block;
+	p->block = b;
+}
+
+void tex_block_exit(struct tex_parser *p) {
+	assert(p->block->parent); //Cannot exit global block
+	p->block = p->block->parent;
+}
+
+struct tex_macro *tex_macro_find(struct tex_parser *p, struct tex_token t) {
+	struct tex_block *b = p->block;
+	while(b) {
+		size_t n = 0;
+		while(n < b->macros_n)
+			if(strcmp(b->macros[n].cs, t.s) == 0) break;
+			else n++;
+
+		if(n < b->macros_n)
+			return &b->macros[n];
+
+		b = b->parent;
 	}
+	return NULL;
+}
+
+void tex_macro_replace(struct tex_parser *p, struct tex_token t) {
+	struct tex_macro *m = tex_macro_find(p, t);
+	//ERROR: macro not found
+	assert(m);
+
+	assert(m->handler);
+	m->handler(p, *m);
 }
 
 //Write the next n characters to the output buffer, returns the number written.

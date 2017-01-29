@@ -75,20 +75,20 @@ struct tex_char_stream {
 	int has_next_char;
 };
 
-struct tex_parser {
-	struct tex_char_stream *char_stream;	//Stream of input characters
-	struct tex_token *token;	//Stream of saved tokens (read before character input)
-
-	//TODO: This block should cascade base on block level
+struct tex_block {
 	char cat[128];  //Category code for ASCII characters
 			//Note: 0 (esc) is switched with 12 (other)
 			//internally for simplicity
 	struct tex_macro macros[MACRO_MAX];
 	size_t macros_n;
-	//END block
+	struct tex_block *parent;
+};
 
-	//TODO: state should be part of the char_stream I think
-	enum tex_state state;
+struct tex_parser {
+	struct tex_char_stream *char_stream;	//Stream of input characters
+	struct tex_token *token;		//Stream of saved tokens (read before character input)
+	struct tex_block *block;		//Hierarchy of namespaces
+	enum tex_state state;			//Current state of tokenizer
 };
 
 //Parser related functions
