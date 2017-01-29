@@ -47,7 +47,7 @@ int main(int argc, const char *argv[]) {
 	char *input =
 		"\\def\\section is #1\\par{<h2>#1</h2>\\par}\n"
 		"\\section is This as test section\n\n"
-		"This is not\n"
+		"This is not\n\n"
 		"\\def\\test#1ababc{#1}\n"
 		"\\test abababc "
 		;

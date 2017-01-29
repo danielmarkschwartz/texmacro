@@ -73,6 +73,33 @@ void tex_init_parser(struct tex_parser *p){
 	for (c = 'a'; c <= 'z'; c++) p->block->cat[(size_t)c] = TEX_LETTER;
 }
 
+void tex_block_enter(struct tex_parser *p) {
+	struct tex_block *b = malloc(sizeof *b);
+	assert(b);
+	memset(b, 0, sizeof *b);
+
+	for(int i = 0; i < 127; i++)
+		b->cat[i] = p->block->cat[i];
+
+	b->parent = p->block;
+	p->block = b;
+}
+
+void tex_block_exit(struct tex_parser *p) {
+	assert(p && p->block);  //There should always be a block defined
+	assert(p->block->parent); //Cannot exit global block
+
+	struct tex_block *b = p->block;
+	p->block = b->parent;
+
+	for(int i = 0; i < 9; i++)
+		if(b->parameter[i])
+			tex_token_free(b->parameter[i]);
+
+	free(b);
+}
+
+
 void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_macro)){
 	assert(p);
 	assert(p->block->macros_n < MACRO_MAX);
@@ -83,15 +110,17 @@ void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struc
 //Parses macro arguments from parser input based on the given arglist and writes the
 //arguments to the supplied buffer, which must be large enough to accomidate all numbered
 //arguments in the arglist
-//TODO: pass a new parser context, and set argument in the parser state
-void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, struct tex_token **args) {
+void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist) {
+	assert(p && p->block);
+	assert(arglist);
+
 	struct tex_token t;
 	while(arglist && arglist->cat != TEX_PARAMETER){
 		t = tex_read_token(p);
 		//ERROR: premature end of input
 		if(t.cat == TEX_INVALID) break;
 
-		//TODO: this should throw an error
+		//ERROR: inital tokens should match
 		assert(tex_token_eq(*arglist, t));
 
 		arglist = arglist->next;
@@ -123,7 +152,7 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, struct
 		} else {
 			if(n == 0) {
 				//Just append the token if no match so far
-				args[i] = tex_token_append(args[i], t);
+				p->block->parameter[i-1] = tex_token_append(p->block->parameter[i-1], t);
 			}else{
 				//Rewind to bound_start
 				arglist = bound_start;
@@ -131,7 +160,7 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, struct
 				//Copy s items (or all if no s) to the argument
 				s = s?s:n;
 				for(int t = s; t > 0; t--) {
-					args[i] = tex_token_append(args[i], *arglist);
+					p->block->parameter[i-1] = tex_token_append(p->block->parameter[i-1], *arglist);
 					arglist = arglist->next;
 				}
 
@@ -181,16 +210,13 @@ struct tex_token *tex_read_block(struct tex_parser *p) {
 
 //Handle a general purpose macro, such as those previously defined by \def
 void tex_handle_macro_general(struct tex_parser* p, struct tex_macro m){
-	struct tex_token *parameters[9] = {};
-	tex_parse_arguments(p, m.arglist, parameters);
-	//TODO: handle parameters
-	fprintf(stderr, "got parameter: \"");
-	while(parameters[1]) {
-		fprintf(stderr, "%c", parameters[1]->c);
-		parameters[1] = parameters[1]->next;
-	}
-	fprintf(stderr, "\"\n");
+	tex_block_enter(p);
+	p->block->macro = (struct tex_token){TEX_ESC, .s=m.cs};
 
+	tex_parse_arguments(p, m.arglist);
+
+	//TODO: close out the block correctly
+	//tex_input_token(p, (struct tex_token){TEX_END_GROUP, .c='}'});
 	p->token = tex_token_join(m.replacement, p->token);
 }
 
@@ -364,20 +390,6 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 	return t;
 }
 
-void tex_block_enter(struct tex_parser *p) {
-	struct tex_block *b = malloc(sizeof *b);
-	assert(b);
-	memset(b, 0, sizeof *b);
-
-	b->parent = p->block;
-	p->block = b;
-}
-
-void tex_block_exit(struct tex_parser *p) {
-	assert(p->block->parent); //Cannot exit global block
-	p->block = p->block->parent;
-}
-
 struct tex_macro *tex_macro_find(struct tex_parser *p, struct tex_token t) {
 	struct tex_block *b = p->block;
 	while(b) {
@@ -403,6 +415,21 @@ void tex_macro_replace(struct tex_parser *p, struct tex_token t) {
 	m->handler(p, *m);
 }
 
+void tex_parameter_replace(struct tex_parser *p, struct tex_token t) {
+	assert(p && p->block);
+	assert(t.cat == TEX_PARAMETER);
+
+	//TODO: this should actually look up the hierarchy for a macro block
+	//ERROR: parameter found not in macro replacement
+	assert(p->block->macro.cat == TEX_ESC);
+
+	struct tex_token *para = p->block->parameter[(size_t)t.c-1];
+	//ERROR: Undefined parameter
+	assert(para);
+
+	p->token = tex_token_join(para, p->token);
+}
+
 //Write the next n characters to the output buffer, returns the number written.
 int tex_read(struct tex_parser *p, char *buf, int n) {
 	assert(n>=0);
@@ -416,6 +443,7 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 		switch(tok.cat) {
 		case TEX_IGNORE: i--; continue;
 		case TEX_ESC: tex_macro_replace(p, tok); i--; continue;
+		case TEX_PARAMETER: tex_parameter_replace(p, tok); i--; continue;
 		default: buf[i] = tok.c;
 		}
 	}

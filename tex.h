@@ -81,6 +81,10 @@ struct tex_block {
 			//internally for simplicity
 	struct tex_macro macros[MACRO_MAX];
 	size_t macros_n;
+
+	struct tex_token macro;
+	struct tex_token *parameter[9];
+
 	struct tex_block *parent;
 };
 
@@ -111,7 +115,7 @@ struct tex_token tex_read_token(struct tex_parser *p);
 struct tex_token tex_read_char(struct tex_parser *p);
 void tex_unread_char(struct tex_parser *p);
 char *tex_read_control_sequence(struct tex_parser *p);
-void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist, struct tex_token **args);
+void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist);
 struct tex_token *tex_parse_arglist(struct tex_parser *p);
 struct tex_token *tex_read_block(struct tex_parser *p);
 int tex_read(struct tex_parser *p, char *buf, int n);
