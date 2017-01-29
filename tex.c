@@ -29,33 +29,21 @@ void handler(int sig) {
 	exit(1);
 }
 
-
-struct tex_char_stream *tex_char_stream_str(char *input, struct tex_char_stream *next){
-	struct tex_char_stream *i = malloc(sizeof(*i));
-	assert(i);
-
-	*i = (struct tex_char_stream){TEX_STRING, .name="", .line=0, .col=0, .str=input, .next=next};
-	return i;
-}
-
-
 int main(int argc, const char *argv[]) {
 	signal(SIGSEGV, handler);   // install our handler
 
 	struct tex_parser p;
 
 	char *input =
-		"\\def\\section is #1\\par{<h2>#1</h2>\\par}\n"
-		"\\section is This as test section\n\n"
-		"This is not\n\n"
-		"\\def\\test#1ababc{#1}\n"
-		"\\test abababc "
+		"\\def\\section#1\\par{<h2>#1</h2>\\par}\n"
+		"\\section This as test section\n\n"
 		;
 
 	tex_init_parser(&p);
+	tex_input_file(&p, "<stdin>", stdin);
 	tex_define_macro_func(&p, "def", tex_handle_macro_def);
 	tex_define_macro_func(&p, "par", tex_handle_macro_par);
-	tex_input_str(&p, input);
+	tex_input_str(&p, "<str>", input);
 
 	//NOTE: TEX_INVALID characters do continue with a warning, as in regular tex,
 	//but instead indicated end of input. By default only '\0' and '\127' are INVALID,

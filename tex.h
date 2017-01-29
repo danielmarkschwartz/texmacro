@@ -5,6 +5,7 @@
 
 //Max length of control sequence
 #define CS_MAX 1024
+#define BUFSIZE 1024
 
 #define TRUE 1
 #define FALSE 0
@@ -58,8 +59,13 @@ struct tex_macro {
 };
 
 enum tex_char_stream_type {
-	TEX_STRING,
+	TEX_BUF,
 	TEX_FILE
+};
+
+struct tex_char_buf {
+	char *buf;
+	size_t i,n;
 };
 
 struct tex_char_stream {
@@ -67,12 +73,13 @@ struct tex_char_stream {
 	char *name;
 	int line, col;
 	union {
-		char *str;
+		struct tex_char_buf buf;
 		FILE *file;
 	};
+
+	char last;
+
 	struct tex_char_stream *next;
-	char next_char;
-	int has_next_char;
 };
 
 struct tex_block {
@@ -101,8 +108,8 @@ void tex_parse(struct tex_parser *p, char *buf, size_t n);
 void tex_free_parser(struct tex_parser *p);
 
 void tex_input(struct tex_parser *p, char *filename);
-void tex_input_file(struct tex_parser *p, FILE *file);
-void tex_input_str(struct tex_parser *p, char *input);
+void tex_input_file(struct tex_parser *p, char *name, FILE *file);
+void tex_input_str(struct tex_parser *p, char *name, char *input);
 void tex_input_token(struct tex_parser *p, struct tex_token t);
 void tex_input_tokens(struct tex_parser *p, struct tex_token *ts, size_t n);
 

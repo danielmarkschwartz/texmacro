@@ -13,14 +13,37 @@ void tex_input(struct tex_parser *p, char *filename){
 }
 
 //Prepend contents of file stream to char stream
-void tex_input_file(struct tex_parser *p, FILE *file){
-	//TODO: implement
+void tex_input_file(struct tex_parser *p, char *name, FILE *file){
+	assert(p);
+	assert(file);
+
+	struct tex_char_stream *s = malloc(sizeof *s);
+	assert(s);
+
+	*s = (struct tex_char_stream){TEX_FILE, .name=name, .file=file, .next=p->char_stream};
+
+	p->char_stream = s;
+}
+
+//Prepend a buffer of characters to the character stream
+void tex_input_buf(struct tex_parser *p, char *name, char *buf, size_t n) {
+	assert(p);
+	assert(buf);
+
+	struct tex_char_stream *s = malloc(sizeof *s);
+	assert(s);
+
+	void *mybuf = malloc(n);
+	memcpy(mybuf, buf, n);
+
+	*s = (struct tex_char_stream){TEX_BUF, .name=name, .buf.buf=mybuf, .buf.n=n, .next=p->char_stream};
+
+	p->char_stream = s;
 }
 
 //Prepend string to top of character input
-void tex_input_str(struct tex_parser *p, char *input){
-	assert(p);
-	p->char_stream = tex_char_stream_str(input, p->char_stream);
+void tex_input_str(struct tex_parser *p, char *name, char *input){
+	tex_input_buf(p, name, input, strlen(input));
 }
 
 //Prepend one token to start of token input
@@ -285,45 +308,66 @@ char *tex_read_control_sequence(struct tex_parser *p) {
 //Unread the last character
 void tex_unread_char(struct tex_parser *p) {
 	assert(p && p->char_stream);
-	assert(!p->char_stream->has_next_char);
-	p->char_stream->has_next_char = TRUE;
-	if(p->char_stream->next_char == '\n')
-		p->char_stream->line--;
-		//NOTE: this doesn't set the correct column, but I don't think it should matter
+	assert(p->char_stream->type == TEX_BUF || p->char_stream->type == TEX_FILE);
+	assert(p->char_stream->buf.i > 0);
+
+	if(p->char_stream->type == TEX_BUF)
+		p->char_stream->buf.i--;
+	else //TEX_FILE
+		ungetc(p->char_stream->last, p->char_stream->file);
+
+	//NOTE: this doesn't set the correct column or line
 }
 
 struct tex_token tex_read_char(struct tex_parser *p) {
+	assert(p);
+
+	struct tex_char_stream *s;
 	char c;
 
-	assert(p);
-	if(p->char_stream == NULL)
-		return (struct tex_token){TEX_INVALID};
+	for(;;){
+		s = p->char_stream;
 
-	if(p->char_stream->has_next_char){
-		p->char_stream->has_next_char = FALSE;
-		c = p->char_stream->next_char;
-	} else {
-		assert(p->char_stream->type == TEX_STRING);
-		//TODO: handle file inputs
+		//Empty streams return TEX_INVALID
+		//TODO: should return EOF or something
+		if(s == NULL)
+			return (struct tex_token){TEX_INVALID};
 
-		if(*p->char_stream->str == '\0') {
-			struct tex_char_stream *old = p->char_stream;
-			p->char_stream = p->char_stream->next;
-			free(old);
-			if(p->char_stream == NULL)
-				return (struct tex_token){TEX_INVALID};
+		assert(s->type == TEX_BUF || s->type == TEX_FILE);
+
+		//Try to read a new character
+		if(s->type == TEX_BUF) {
+			if(s->buf.i >= s->buf.n) {
+				//TODO: free old stream
+				p->char_stream = s->next;
+				continue;
+			}
+
+			c = s->buf.buf[s->buf.i++];
+			break;
 		}
 
-		c = *(p->char_stream->str++);
-		p->char_stream->next_char = c;
+		int i = fgetc(s->file);
+		if(i == EOF) {
+			//TODO: free old stream
+			p->char_stream = s->next;
+			continue;
+		}
+
+		c = (char)i;
+		break;
 	}
 
-	if(c == '\n'){
-		p->char_stream->line++;
-		p->char_stream->col=0;
-	}else
-		p->char_stream->col++;
+	s->last = c;
 
+	//Update file position
+	if(c == '\n'){
+		s->line++;
+		s->col=0;
+	}else
+		s->col++;
+
+	//Read character category
 	char cat = p->block->cat[(size_t)c];
 	assert(cat <= TEX_CAT_NUM);
 
