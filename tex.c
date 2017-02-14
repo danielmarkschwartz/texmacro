@@ -34,8 +34,8 @@ int main(int argc, const char *argv[]) {
 	struct tex_parser p;
 
 	char *input =
-		"\\def\\a b#2c{X#1X}\n"
-		"\\a "
+		"\\def\\a b#1c{X#1X}\n"
+		"\\a b OEU c"
 		;
 
 	tex_init_parser(&p);

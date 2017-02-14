@@ -40,7 +40,7 @@ enum tex_state {
 	TEX_SKIPSPACE
 };
 
-#define MACRO_MAX 128
+#define VAL_MAX 128
 
 struct tex_token {
 	enum tex_category cat;
@@ -52,10 +52,21 @@ struct tex_token {
 	struct tex_token *next, *prev;
 };
 
-struct tex_macro {
-	char *cs; //Macro control sequence string
-	struct tex_token *arglist, *replacement; //TEX_INVALID terminated token lists
-	void (*handler)(struct tex_parser *, struct tex_macro);
+enum tex_val_type {
+	TEX_MACRO,	//A macro as defined by \def or equivalent construction
+	TEX_VAR		//A variable either set in TeX code or C code
+};
+
+struct tex_val {
+	enum tex_val_type type;		//Type of value
+	struct tex_token cs;		//Control sequence that invokes this value (must be TEX_ESC)
+
+	//TEX_INVALID terminated token lists
+	struct tex_token *arglist;	//MACRO ONLY: format of expected argument list
+	struct tex_token *replacement;	//Tokens that should be evaluated in place of cs
+
+	//MACRO ONLY: handler function
+	void (*handler)(struct tex_parser *, struct tex_val);
 };
 
 enum tex_char_stream_type {
@@ -86,8 +97,8 @@ struct tex_block {
 	char cat[128];  //Category code for ASCII characters
 			//Note: 0 (esc) is switched with 12 (other)
 			//internally for simplicity
-	struct tex_macro macros[MACRO_MAX];
-	size_t macros_n;
+	struct tex_val vals[VAL_MAX];
+	size_t vals_n;
 
 	struct tex_token macro;
 	struct tex_token *parameter[9];
@@ -115,9 +126,9 @@ void tex_input_token(struct tex_parser *p, struct tex_token t);
 void tex_input_tokens(struct tex_parser *p, struct tex_token *ts, size_t n);
 
 void tex_define_macro(struct tex_parser *p, char *cs,struct tex_token *arglist,struct tex_token *replacement);
-void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_macro));
-void tex_handle_macro_par(struct tex_parser* p, struct tex_macro m);
-void tex_handle_macro_def(struct tex_parser* p, struct tex_macro m);
+void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_val));
+void tex_handle_macro_par(struct tex_parser* p, struct tex_val m);
+void tex_handle_macro_def(struct tex_parser* p, struct tex_val m);
 
 struct tex_token tex_read_token(struct tex_parser *p);
 struct tex_token tex_read_char(struct tex_parser *p);

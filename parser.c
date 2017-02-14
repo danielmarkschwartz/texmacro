@@ -137,11 +137,11 @@ void tex_block_exit(struct tex_parser *p) {
 }
 
 
-void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_macro)){
+void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_val)){
 	assert(p);
-	assert(p->block->macros_n < MACRO_MAX);
+	assert(p->block->vals_n < VAL_MAX);
 
-	p->block->macros[p->block->macros_n++] = (struct tex_macro){cs, .handler=handler};
+	p->block->vals[p->block->vals_n++] = (struct tex_val){TEX_MACRO, (struct tex_token){TEX_ESC, .s=cs}, .handler=handler};
 }
 
 //Parses macro arguments from parser input based on the given arglist and writes the
@@ -248,9 +248,9 @@ struct tex_token *tex_read_block(struct tex_parser *p) {
 }
 
 //Handle a general purpose macro, such as those previously defined by \def
-void tex_handle_macro_general(struct tex_parser* p, struct tex_macro m){
+void tex_handle_macro_general(struct tex_parser* p, struct tex_val m){
 	tex_block_enter(p);
-	p->block->macro = (struct tex_token){TEX_ESC, .s=m.cs};
+	p->block->macro = m.cs;
 
 	tex_parse_arguments(p, m.arglist);
 
@@ -259,14 +259,14 @@ void tex_handle_macro_general(struct tex_parser* p, struct tex_macro m){
 	p->token = tex_token_join(m.replacement, p->token);
 }
 
-void tex_handle_macro_par(struct tex_parser* p, struct tex_macro m){
+void tex_handle_macro_par(struct tex_parser* p, struct tex_val m){
 	assert(p);
 	p->token = tex_token_prepend((struct tex_token){TEX_OTHER, .c='\n'}, p->token);
 	p->token = tex_token_prepend((struct tex_token){TEX_OTHER, .c='\n'}, p->token);
 }
 
 //Handle \def macros
-void tex_handle_macro_def(struct tex_parser* p, struct tex_macro m){
+void tex_handle_macro_def(struct tex_parser* p, struct tex_val m){
 	struct tex_token cs = tex_read_token(p);
 	assert(cs.cat == TEX_ESC);
 
@@ -280,9 +280,9 @@ void tex_handle_macro_def(struct tex_parser* p, struct tex_macro m){
 
 void tex_define_macro(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement) {
 	assert(p);
-	assert(p->block->macros_n < MACRO_MAX);
+	assert(p->block->vals_n < VAL_MAX);
 
-	p->block->macros[p->block->macros_n++] = (struct tex_macro){cs, arglist, replacement, tex_handle_macro_general};
+	p->block->vals[p->block->vals_n++] = (struct tex_val){TEX_MACRO, (struct tex_token){TEX_ESC, .s=cs}, arglist, replacement, tex_handle_macro_general};
 }
 
 char *tex_read_control_sequence(struct tex_parser *p) {
@@ -450,16 +450,16 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 	return t;
 }
 
-struct tex_macro *tex_macro_find(struct tex_parser *p, struct tex_token t) {
+struct tex_val *tex_val_find(struct tex_parser *p, struct tex_token t) {
 	struct tex_block *b = p->block;
 	while(b) {
 		size_t n = 0;
-		while(n < b->macros_n)
-			if(strcmp(b->macros[n].cs, t.s) == 0) break;
+		while(n < b->vals_n)
+			if(strcmp(b->vals[n].cs.s, t.s) == 0) break;
 			else n++;
 
-		if(n < b->macros_n)
-			return &b->macros[n];
+		if(n < b->vals_n)
+			return &b->vals[n];
 
 		b = b->parent;
 	}
@@ -467,7 +467,7 @@ struct tex_macro *tex_macro_find(struct tex_parser *p, struct tex_token t) {
 }
 
 void tex_macro_replace(struct tex_parser *p, struct tex_token t) {
-	struct tex_macro *m = tex_macro_find(p, t);
+	struct tex_val *m = tex_val_find(p, t);
 	//ERROR: macro not found
 	assert(m);
 
