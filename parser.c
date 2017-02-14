@@ -274,11 +274,11 @@ void tex_handle_macro_def(struct tex_parser* p, struct tex_val m){
 	struct tex_token *replacement = tex_read_block(p);
 	assert(replacement);
 
-	tex_define_macro(p, cs.s, arglist, replacement);
+	tex_define_macro_tokens(p, cs.s, arglist, replacement);
 }
 
 
-void tex_define_macro(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement) {
+void tex_define_macro_tokens(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement) {
 	assert(p);
 	assert(p->block->vals_n < VAL_MAX);
 
