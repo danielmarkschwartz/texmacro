@@ -55,10 +55,20 @@ struct tex_token *tex_token_prepend(struct tex_token t, struct tex_token *after)
 }
 
 void tex_token_print(struct tex_token t) {
-	if(t.cat == TEX_ESC)
-		printf("\\%s",t.s);
-	else
-		printf("%c_%i", t.c, t.cat);
+	switch(t.cat) {
+	case TEX_ESC: printf("\\%s ",t.s); break;
+	case TEX_PARAMETER: printf("#%i ", t.c); break;
+	default:
+		if(t.c == 0) printf("NULL_%i ", t.cat);
+		else printf("%c_%i ", t.c, t.cat);
+	}
+}
+
+void tex_tokenlist_print(struct tex_token *t) {
+	while(t) {
+		tex_token_print(*t);
+		t = t->next;
+	}
 }
 
 int tex_token_eq(struct tex_token a, struct tex_token b) {
@@ -67,4 +77,34 @@ int tex_token_eq(struct tex_token a, struct tex_token b) {
 		return strcmp(a.s, b.s) == 0;
 	}
 	return a.c == b.c;
+}
+
+size_t tex_tokenlist_len(struct tex_token *t) {
+	size_t n = 0;
+	while(t) {
+		switch(t->cat){
+		case TEX_ESC: n += strlen(t->s); break;
+		case TEX_PARAMETER: n += 2; break;
+		default: n++;
+		}
+		t = t->next;
+	}
+	return n;
+}
+char *tex_tokenlist_as_str(struct tex_token *t) {
+	size_t len = tex_tokenlist_len(t);
+	char *s, *ret = malloc(len+1);
+	assert(ret);
+
+	s = ret;
+	while(t) {
+		switch(t->cat){
+		case TEX_ESC: strcpy(s, t->s); s += strlen(t->s); break;
+		case TEX_PARAMETER: *(s++) = '#'; *(s++) = '0'+t->c; break;
+		default: *(s++) = t->c;
+		}
+		t = t->next;
+	}
+	*s = 0;
+	return ret;
 }

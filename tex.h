@@ -125,6 +125,11 @@ void tex_input_str(struct tex_parser *p, char *name, char *input);
 void tex_input_token(struct tex_parser *p, struct tex_token t);
 void tex_input_tokens(struct tex_parser *p, struct tex_token *ts, size_t n);
 
+
+void tex_block_enter(struct tex_parser *p);
+void tex_block_exit(struct tex_parser *p);
+
+void tex_define_macro_tokens(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement);
 void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_val));
 
 void tex_handle_macro_par(struct tex_parser* p, struct tex_val m);
@@ -150,3 +155,6 @@ struct tex_token *tex_token_append(struct tex_token *before, struct tex_token t)
 struct tex_token *tex_token_prepend(struct tex_token t, struct tex_token *after);
 int tex_token_eq(struct tex_token a, struct tex_token b);
 void tex_token_print(struct tex_token t);
+void tex_tokenlist_print(struct tex_token *t);
+char *tex_tokenlist_as_str(struct tex_token *t);
+size_t tex_tokenlist_len(struct tex_token *t);
