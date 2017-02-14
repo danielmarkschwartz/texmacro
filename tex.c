@@ -4,7 +4,6 @@
  *
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,12 +34,12 @@ int main(int argc, const char *argv[]) {
 	struct tex_parser p;
 
 	char *input =
-		"\\def\\section#1\\par{<h2>#1</h2>\\par}\n"
-		"\\section This as test section\n\n"
+		"\\def\\a b#2c{X#1X}\n"
+		"\\a "
 		;
 
 	tex_init_parser(&p);
-	tex_input_file(&p, "<stdin>", stdin);
+	//tex_input_file(&p, "<stdin>", stdin);
 	tex_define_macro_func(&p, "def", tex_handle_macro_def);
 	tex_define_macro_func(&p, "par", tex_handle_macro_par);
 	tex_input_str(&p, "<str>", input);

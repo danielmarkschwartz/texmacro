@@ -1,12 +1,24 @@
 #include <assert.h>
 #include <ctype.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "tex.h"
 
+static void error(char *fmt, ...){
+	va_list ap;
+	va_start(ap, fmt);
+
+	fprintf(stderr, "ERROR: ");
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+
+	exit(1);
+}
+
 //Prepend contents of given filename to char stream
-//  Filename may be a full path, a file in the CWD, or a file in 
+//  Filename may be a full path, a file in the CWD, or a file in
 //  the library path. Filename may optionally omit the ".tex" extension
 void tex_input(struct tex_parser *p, char *filename){
 	//TODO: implement
@@ -18,7 +30,7 @@ void tex_input_file(struct tex_parser *p, char *name, FILE *file){
 	assert(file);
 
 	struct tex_char_stream *s = malloc(sizeof *s);
-	assert(s);
+	if(!s) p->error("Could not allocate memory");
 
 	*s = (struct tex_char_stream){TEX_FILE, .name=name, .file=file, .next=p->char_stream};
 
@@ -31,7 +43,7 @@ void tex_input_buf(struct tex_parser *p, char *name, char *buf, size_t n) {
 	assert(buf);
 
 	struct tex_char_stream *s = malloc(sizeof *s);
-	assert(s);
+	if(!s) p->error("Could not allocate memory");
 
 	void *mybuf = malloc(n);
 	memcpy(mybuf, buf, n);
@@ -71,7 +83,7 @@ void tex_init_parser(struct tex_parser *p){
 	memset(p, 0, sizeof *p);
 
 	p->block = malloc(sizeof *p->block);
-	assert(p->block);
+	if(!p->block) p->error("Could not allocate memory");
 	memset(p->block, 0, sizeof *p->block);
 
 	//Set default character codes
@@ -94,11 +106,13 @@ void tex_init_parser(struct tex_parser *p){
 	char c;
 	for (c = 'A'; c <= 'Z'; c++) p->block->cat[(size_t)c] = TEX_LETTER;
 	for (c = 'a'; c <= 'z'; c++) p->block->cat[(size_t)c] = TEX_LETTER;
+
+	p->error = error;
 }
 
 void tex_block_enter(struct tex_parser *p) {
 	struct tex_block *b = malloc(sizeof *b);
-	assert(b);
+	if(!b) p->error("Could not allocate memory");
 	memset(b, 0, sizeof *b);
 
 	for(int i = 0; i < 127; i++)
@@ -140,11 +154,11 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist) {
 	struct tex_token t;
 	while(arglist && arglist->cat != TEX_PARAMETER){
 		t = tex_read_token(p);
-		//ERROR: premature end of input
-		if(t.cat == TEX_INVALID) break;
+		if(t.cat == TEX_INVALID)
+			p->error("Input ends while reading macro arguments");
 
-		//ERROR: inital tokens should match
-		assert(tex_token_eq(*arglist, t));
+		if(!tex_token_eq(*arglist, t))
+			p->error("Macro usage does not match definition");
 
 		arglist = arglist->next;
 	}
@@ -155,8 +169,10 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist) {
 	       s = 0; /*start of rewind*/
 	while(arglist != NULL) {
 		t = tex_read_token(p);
-		assert(t.cat != TEX_INVALID); //ERROR: Premature end of input
-		assert(t.cat != TEX_PARAMETER); //ERROR: shouldn't find parameters here
+		if(t.cat == TEX_INVALID)
+			p->error("Input ends while reading macro arguments");
+		if(t.cat == TEX_PARAMETER)
+			p->error("Parameter used outside of macro definition");
 
 		if(arglist->cat == TEX_PARAMETER){
 			i++;
@@ -208,8 +224,8 @@ struct tex_token *tex_parse_arglist(struct tex_parser *p) {
 
 	while((t = tex_read_token(p)).cat != TEX_BEGIN_GROUP) {
 		if(t.cat == TEX_INVALID) break;
-		//TODO: this should be an error, not assert
-		assert(t.cat != TEX_PARAMETER || t.c == pn++);
+		if(t.cat == TEX_PARAMETER && t.c != pn++)
+			p->error("Paramater numbers should increase sequentially");
 		ts = tex_token_append(ts, t);
 	}
 
