@@ -410,7 +410,7 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 
 	case TEX_SPACE:
 		if(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE)
-			return (struct tex_token){TEX_IGNORE};
+			return tex_read_token(p);
 
 		p->state = TEX_SKIPSPACE;
 		return (struct tex_token){TEX_OTHER, .c=' '};
@@ -428,7 +428,7 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 
 	case TEX_COMMENT:
 		while(tex_read_char(p).cat != TEX_EOL);
-		return (struct tex_token){TEX_IGNORE};
+		return tex_read_token(p);
 
 	case TEX_PARAMETER:
 		t = tex_read_char(p);
@@ -436,12 +436,16 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 			return (struct tex_token){TEX_OTHER, .c=t.c};
 
 		assert(isdigit(t.c));
+		p->state = TEX_MIDLINE;
 		return (struct tex_token){TEX_PARAMETER, .c=t.c-'0'};
 
 	case TEX_ESC:
 		t.s = tex_read_control_sequence(p);
 		p->state = TEX_SKIPSPACE;
 		break;
+
+	case TEX_IGNORE:
+		return tex_read_token(p);
 
 	default:
 		p->state = TEX_MIDLINE;
