@@ -28,6 +28,24 @@ void handler(int sig) {
 	exit(1);
 }
 
+static void handle_env(struct tex_parser* p, struct tex_val m){
+	struct tex_parser a;
+	tex_init_parser(&a);
+	tex_input_str(&a, "-", "#1 {");
+
+	tex_block_enter(p);
+	p->block->macro = m.cs;
+
+	struct tex_token *arglist = tex_parse_arglist(&a);
+	tex_parse_arguments(p, arglist);
+
+	tex_input_str(p, "<env>", getenv(tex_tokenlist_as_str(p->block->parameter[0])));
+
+	//TODO: properly exit block
+	//tex_block_exit(p);
+	tex_free_parser(&a);
+}
+
 int main(int argc, const char *argv[]) {
 	signal(SIGSEGV, handler);   // install our handler
 
@@ -35,13 +53,16 @@ int main(int argc, const char *argv[]) {
 
 	char *input =
 		"\\def\\a b#1c{X#1X}\n"
-		"\\a b OEU c"
+		"\\a b OEU c\n\n"
+		"Hello \\env USER \n\n"
+		"HOME = \\env HOME \n"
 		;
 
 	tex_init_parser(&p);
 	//tex_input_file(&p, "<stdin>", stdin);
 	tex_define_macro_func(&p, "def", tex_handle_macro_def);
 	tex_define_macro_func(&p, "par", tex_handle_macro_par);
+	tex_define_macro_func(&p, "env", handle_env);
 	tex_input_str(&p, "<str>", input);
 
 	//NOTE: TEX_INVALID characters do continue with a warning, as in regular tex,
