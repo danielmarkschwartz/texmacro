@@ -149,7 +149,9 @@ void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struc
 //arguments in the arglist
 void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist) {
 	assert(p && p->block);
-	assert(arglist);
+
+	//Nothing to do for empty arglist
+	if(!arglist) return;
 
 	struct tex_token t;
 	while(arglist && arglist->cat != TEX_PARAMETER){
@@ -323,7 +325,12 @@ char *tex_read_control_sequence(struct tex_parser *p) {
 
 //Unread the last character
 void tex_unread_char(struct tex_parser *p) {
-	assert(p && p->char_stream);
+	assert(p);
+
+	//Having no stream means we are unreading an EOF
+	//Since we will always read EOF, there is nothing to do
+	if(!p->char_stream) return;
+
 	assert(p->char_stream->type == TEX_BUF || p->char_stream->type == TEX_FILE);
 	assert(p->char_stream->buf.i > 0);
 
