@@ -52,9 +52,11 @@ int main(int argc, const char *argv[]) {
 		"\\def\\a b#1c{X#1X}\n"
 		"\\a b OEU c\n\n"
 		"Hello \\env USER  (\\env HOME )\n\n"
-		"\\def\\test{Test?\\par}}\n"
-		//"{\\def\\test{TEST\\par}}\n"
-		//"\\test"
+		"\\def\\test{Test?\\par}\n"
+		"{\\def\\test{TEST\\par}"
+		"  \\test"
+		"}\n"
+		"\\test"
 		;
 
 	tex_init_parser(&p);
