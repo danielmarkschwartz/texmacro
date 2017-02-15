@@ -124,7 +124,8 @@ void tex_block_enter(struct tex_parser *p) {
 
 void tex_block_exit(struct tex_parser *p) {
 	assert(p && p->block);  //There should always be a block defined
-	assert(p->block->parent); //Cannot exit global block
+	if(!p->block->parent)
+		p->error("Extraneous group close");
 
 	struct tex_block *b = p->block;
 	p->block = b->parent;
