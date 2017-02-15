@@ -515,6 +515,8 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 		case TEX_IGNORE: i--; continue;
 		case TEX_ESC: tex_macro_replace(p, tok); i--; continue;
 		case TEX_PARAMETER: tex_parameter_replace(p, tok); i--; continue;
+		case TEX_BEGIN_GROUP: tex_block_enter(p); i--; continue;
+		case TEX_END_GROUP: tex_block_exit(p); i--; continue;
 		default: buf[i] = tok.c;
 		}
 	}
