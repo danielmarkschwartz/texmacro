@@ -479,8 +479,7 @@ struct tex_val *tex_val_find(struct tex_parser *p, struct tex_token t) {
 
 void tex_macro_replace(struct tex_parser *p, struct tex_token t) {
 	struct tex_val *m = tex_val_find(p, t);
-	//ERROR: macro not found
-	assert(m);
+	if(!m) p->error("Macro '\\%s' not found", t.s);
 
 	assert(m->handler);
 	m->handler(p, *m);
