@@ -39,10 +39,9 @@ static void handle_env(struct tex_parser* p, struct tex_val m){
 	struct tex_token *arglist = tex_parse_arglist(&a);
 	tex_parse_arguments(p, arglist);
 
+	tex_input_str(p, "<env>", "}");
 	tex_input_str(p, "<env>", getenv(tex_tokenlist_as_str(p->block->parameter[0])));
 
-	//TODO: properly exit block
-	//tex_block_exit(p);
 	tex_free_parser(&a);
 }
 
@@ -56,8 +55,9 @@ int main(int argc, const char *argv[]) {
 		"\\a b OEU c\n\n"
 		"Hello \\env USER \n\n"
 		"HOME = \\env HOME \n\n"
-		"{\\def\\test{TEST\\par}}\n"
-		"\\test"
+		//"\\def\\test{Test?\\par}}\n"
+		//"{\\def\\test{TEST\\par}}\n"
+		//"\\test"
 		;
 
 	tex_init_parser(&p);

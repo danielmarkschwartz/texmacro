@@ -257,7 +257,7 @@ void tex_handle_macro_general(struct tex_parser* p, struct tex_val m){
 	tex_parse_arguments(p, m.arglist);
 
 	//TODO: close out the block correctly
-	//tex_input_token(p, (struct tex_token){TEX_END_GROUP, .c='}'});
+	tex_input_token(p, (struct tex_token){TEX_END_GROUP, .c='}'});
 	p->token = tex_token_join(m.replacement, p->token);
 }
 
@@ -491,6 +491,7 @@ void tex_parameter_replace(struct tex_parser *p, struct tex_token t) {
 	assert(t.cat == TEX_PARAMETER);
 
 	//TODO: this should actually look up the hierarchy for a macro block
+
 	//ERROR: parameter found not in macro replacement
 	assert(p->block->macro.cat == TEX_ESC);
 
