@@ -32,17 +32,15 @@ static void handle_env(struct tex_parser* p, struct tex_val m){
 	struct tex_parser a;
 	tex_init_parser(&a);
 	tex_input_str(&a, "-", "#1 {");
+	struct tex_token *arglist = tex_parse_arglist(&a);
+	tex_free_parser(&a);
 
 	tex_block_enter(p);
-	p->block->macro = m.cs;
-
-	struct tex_token *arglist = tex_parse_arglist(&a);
 	tex_parse_arguments(p, arglist);
 
 	tex_input_str(p, "<env>", "}");
-	tex_input_str(p, "<env>", getenv(tex_tokenlist_as_str(p->block->parameter[0])));
-
-	tex_free_parser(&a);
+	char* env = getenv(tex_tokenlist_as_str(p->block->parameter[0]));
+	if(env) tex_input_str(p, "<env>", env);
 }
 
 int main(int argc, const char *argv[]) {
@@ -53,9 +51,8 @@ int main(int argc, const char *argv[]) {
 	char *input =
 		"\\def\\a b#1c{X#1X}\n"
 		"\\a b OEU c\n\n"
-		"Hello \\env USER \n\n"
-		"HOME = \\env HOME \n\n"
-		//"\\def\\test{Test?\\par}}\n"
+		"Hello \\env USER  (\\env HOME )\n\n"
+		"\\def\\test{Test?\\par}}\n"
 		//"{\\def\\test{TEST\\par}}\n"
 		//"\\test"
 		;
