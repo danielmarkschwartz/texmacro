@@ -112,6 +112,7 @@ struct tex_parser {
 	struct tex_block *block;		//Hierarchy of namespaces
 	enum tex_state state;			//Current state of tokenizer
 	void (*error)(char *fmt, ...);		//Error handler in printf style, should not return
+	FILE *in[16], *out[16];			//Input/output streams
 };
 
 //Parser related functions
@@ -139,6 +140,8 @@ struct tex_token tex_read_token(struct tex_parser *p);
 struct tex_token tex_read_char(struct tex_parser *p);
 void tex_unread_char(struct tex_parser *p);
 char *tex_read_control_sequence(struct tex_parser *p);
+int tex_read_num(struct tex_parser *p);
+char *tex_read_filename(struct tex_parser *p);
 void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist);
 struct tex_token *tex_parse_arglist(struct tex_parser *p);
 struct tex_token *tex_read_block(struct tex_parser *p);

@@ -502,6 +502,53 @@ void tex_parameter_replace(struct tex_parser *p, struct tex_token t) {
 	p->token = tex_token_join(para, p->token);
 }
 
+#define CHAR_MAX_LEN 12
+
+int tex_read_num(struct tex_parser *p) {
+	char s[CHAR_MAX_LEN+1], *end;
+	size_t n = 0;
+	struct tex_token t;
+
+	while(n < CHAR_MAX_LEN) {
+		t = tex_read_token(p);
+		if(t.cat == TEX_ESC || t.c < '0' || t.c > '9')
+			break;
+		s[n++] = t.c;
+	}
+
+	tex_unread_char(p);
+
+	if(n == 0)
+		p->error("Expected an integer value, but no numbers have been found");
+
+
+	s[n] = 0;
+	int i = strtol(s, &end, 10);
+	if(end == s)
+		p->error("\"%s\"could not be parsed as integer", s);
+
+	return i;
+}
+
+char *tex_read_filename(struct tex_parser *p) {
+	char filename[FILENAME_MAX+1];
+	struct tex_token t;
+	size_t n = 0;
+
+	while(n < FILENAME_MAX){
+		t = tex_read_token(p);
+		if((t.cat != TEX_LETTER && t.cat != TEX_OTHER)|| t.c == ' ')
+			break;
+		filename[n++] = t.c;
+	}
+
+	tex_input_token(p, t);
+	filename[n] = 0;
+
+	return strdup(filename);
+
+}
+
 //Write the next n characters to the output buffer, returns the number written.
 int tex_read(struct tex_parser *p, char *buf, int n) {
 	assert(n>=0);

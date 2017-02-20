@@ -28,6 +28,8 @@ void handler(int sig) {
 	exit(1);
 }
 
+//Becomes the ENV value of the given key
+//\env#1{<value}
 static void handle_env(struct tex_parser* p, struct tex_val m){
 	struct tex_parser a;
 	tex_init_parser(&a);
@@ -43,20 +45,55 @@ static void handle_env(struct tex_parser* p, struct tex_val m){
 	if(env) tex_input_str(p, "<env>", env);
 }
 
+//Opens the given number stream (0-15) for writing to given filename
+//\openout<num>=<filname>
+static void handle_openout(struct tex_parser* p, struct tex_val m){
+	int n = tex_read_num(p);
+	if(n < 0 || n > 15)
+		p->error("output stream must be between 0-15");
+
+	struct tex_token t = tex_read_token(p);
+	if(t.c != '=')
+		p->error("\\openout expects = after file number");
+
+	char *filename = tex_read_filename(p);
+
+	if(p->out[n]) fclose(p->out[n]);
+	p->out[n] = fopen(filename, "w");
+	if(p->out[n] == NULL)
+		p->error("could not open \"%s\" for writing", filename);
+}
+
+//Writes a balanced block to given output stream (0-15)
+static void handle_write(struct tex_parser* p, struct tex_val m){
+	int n = tex_read_num(p);
+	if(n < 0 || n > 15)
+		p->error("output stream must be between 0-15");
+
+	if(p->out[n] == NULL)
+		//NOTE: in TeX, this case would just be stdout by default
+		p->error("output stream %i is not open", n);
+
+	struct tex_token *block = tex_read_block(p);
+	if(!block)
+		p->error("expected block after \\write");
+
+	char *out = tex_tokenlist_as_str(block);
+	size_t outlen = strlen(out);
+
+	while(outlen > 0) {
+		fwrite(p->out[n],
+	}
+}
+
 int main(int argc, const char *argv[]) {
 	signal(SIGSEGV, handler);   // install our handler
 
 	struct tex_parser p;
 
 	char *input =
-		"\\def\\a b#1c{X#1X}\n"
-		"\\a b OEU c\n\n"
-		"Hello \\env USER  (\\env HOME )\n\n"
-		"\\def\\test{Test?\\par}\n"
-		"{\\def\\test{TEST\\par}"
-		"  \\test"
-		"}\n"
-		"\\test"
+		"\\openout0=testout\n"
+		"\\write0{hello world}\n"
 		;
 
 	tex_init_parser(&p);
@@ -64,6 +101,8 @@ int main(int argc, const char *argv[]) {
 	tex_define_macro_func(&p, "def", tex_handle_macro_def);
 	tex_define_macro_func(&p, "par", tex_handle_macro_par);
 	tex_define_macro_func(&p, "env", handle_env);
+	tex_define_macro_func(&p, "openout", handle_openout);
+	tex_define_macro_func(&p, "write", handle_write);
 	tex_input_str(&p, "<str>", input);
 
 	//NOTE: TEX_INVALID characters do continue with a warning, as in regular tex,
