@@ -81,9 +81,8 @@ static void handle_write(struct tex_parser* p, struct tex_val m){
 	char *out = tex_tokenlist_as_str(block);
 	size_t outlen = strlen(out);
 
-	while(outlen > 0) {
-		fwrite(p->out[n],
-	}
+	if(fwrite(out, 1, outlen, p->out[n]) < outlen)
+		p->error("could not finish writing to file stream %i", n);
 }
 
 int main(int argc, const char *argv[]) {
