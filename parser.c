@@ -170,43 +170,72 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist) {
 	size_t i = 0, /*arg number*/
 	       n = 0, /*bounding characters matched*/
 	       s = 0; /*start of rewind*/
+	int g = 0; /*grouping level of parameter text*/
 	while(arglist != NULL) {
 		t = tex_read_token(p);
 		if(t.cat == TEX_INVALID)
-			p->error("Input ends while reading macro arguments");
+			p->error(p, "Input ends while reading macro arguments");
 		if(t.cat == TEX_PARAMETER)
-			p->error("Parameter used outside of macro definition");
+			p->error(p, "Parameter used outside of macro definition");
 
 		if(arglist->cat == TEX_PARAMETER){
+			arglist = arglist->next;
 			i++;
+
+			//If this is a undelimited parameter
+			if(arglist == NULL || arglist->cat == TEX_PARAMETER){
+				//Groups are read as a single parameter
+				if(t.cat == TEX_BEGIN_GROUP) {
+					tex_input_token(p, t);
+					p->block->parameter[i-1] = tex_read_block(p);
+				} else {
+					//This token (or group) is the parameter
+					p->block->parameter[i-1] = tex_token_alloc(t);
+				}
+
+				continue;
+			}
+
+
+			//This is a delimited parameter
+			//Initialize new boundary search parameters
 			n = 0;
 			s = 0;
-			arglist = arglist->next;
+			g = 0;
 			bound_start = arglist;
+
 		}
 
-		if(arglist && tex_token_eq(*arglist, t)){
-			//Token matches bound, keep reading
+		//Keep track of group balancing
+		if(t.cat == TEX_BEGIN_GROUP) g++;
+		if(t.cat == TEX_END_GROUP) g--;
+
+		if(g < 0) p->error(p, "unbalanced end group  while reading parameter");
+
+		if(arglist && g == 0 && tex_token_eq(*arglist, t)){
+			//Token matches boundry, keep reading
 			arglist = arglist->next;
 			if(s == 0 && n > 0 && tex_token_eq(t, *bound_start))
 				s = n;
 			n++;
-		} else {
+		} else { //Token does not match boundary token
 			if(n == 0) {
-				//Just append the token if no match so far
+				//No boundry tokens match so far, append this token to parameter
 				p->block->parameter[i-1] = tex_token_append(p->block->parameter[i-1], t);
-			}else{
-				//Rewind to bound_start
+			}else{ //Some boundary tokens have been matched and consumed
+				//Rewind arglist to bound_start
 				arglist = bound_start;
 
 				//Copy s items (or all if no s) to the argument
+				//These are the items that we know do not match
+				//the boundary and can be skipped
 				s = s?s:n;
 				for(int t = s; t > 0; t--) {
 					p->block->parameter[i-1] = tex_token_append(p->block->parameter[i-1], *arglist);
 					arglist = arglist->next;
 				}
 
-				//Replay and uncopied items and this one
+				//Add unskipped items to the front of the input
 				tex_input_token(p, t);
 				tex_input_tokens(p, arglist, n-s);
 
@@ -240,14 +269,41 @@ struct tex_token *tex_parse_arglist(struct tex_parser *p) {
 //Reads one balanced block of tokens, or NULL if next token is not a TEX_BEGIN_GROUP
 struct tex_token *tex_read_block(struct tex_parser *p) {
 	struct tex_token t = tex_read_token(p);
-	if(t.cat != TEX_BEGIN_GROUP) return NULL;
+	if(t.cat != TEX_BEGIN_GROUP){
+		//TODO: unread this token
+		return NULL;
+	}
 
 	struct tex_token *ts = NULL;
 
-	while((t = tex_read_token(p)).cat != TEX_END_GROUP)
+	int group = 0;
+	while((t = tex_read_token(p)).cat != TEX_END_GROUP || group > 0) {
+		if(t.cat == TEX_BEGIN_GROUP) group ++;
+		if(t.cat == TEX_END_GROUP) group --;
 		ts = tex_token_append(ts, t);
+	}
 
 	return ts;
+}
+
+//Reads one balanced block of tokens, or NULL if next token is not a TEX_BEGIN_GROUP
+//Expands tokens inside block if able
+struct tex_token *tex_read_and_expand_block(struct tex_parser *p) {
+	struct tex_token *ts = tex_read_block(p), *ret = NULL;
+
+	while(ts) {
+		switch(ts->cat) {
+		case TEX_ESC: tex_macro_replace(p, *ts); break;
+		case TEX_PARAMETER: tex_parameter_replace(p, *ts); break;
+		case TEX_BEGIN_GROUP: tex_block_enter(p); break;
+		case TEX_END_GROUP: tex_block_exit(p); break;
+		default: ret = tex_token_append(ret, *ts);
+		}
+
+		ts = ts->next;
+	}
+
+	return ret;
 }
 
 //Handle a general purpose macro, such as those previously defined by \def
@@ -257,7 +313,6 @@ void tex_handle_macro_general(struct tex_parser* p, struct tex_val m){
 
 	tex_parse_arguments(p, m.arglist);
 
-	//TODO: close out the block correctly
 	tex_input_token(p, (struct tex_token){TEX_END_GROUP, .c='}'});
 	p->token = tex_token_join(m.replacement, p->token);
 }
@@ -275,6 +330,17 @@ void tex_handle_macro_def(struct tex_parser* p, struct tex_val m){
 
 	struct tex_token *arglist = tex_parse_arglist(p);
 	struct tex_token *replacement = tex_read_block(p);
+	assert(replacement);
+
+	tex_define_macro_tokens(p, cs.s, arglist, replacement);
+}
+
+void tex_handle_macro_edef(struct tex_parser* p, struct tex_val m){
+	struct tex_token cs = tex_read_token(p);
+	assert(cs.cat == TEX_ESC);
+
+	struct tex_token *arglist = tex_parse_arglist(p);
+	struct tex_token *replacement = tex_read_and_expand_block(p);
 	assert(replacement);
 
 	tex_define_macro_tokens(p, cs.s, arglist, replacement);
@@ -440,8 +506,9 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 
 	case TEX_PARAMETER:
 		t = tex_read_char(p);
-		if(t.cat == TEX_PARAMETER)
+		if(t.cat == TEX_PARAMETER) {
 			return (struct tex_token){TEX_OTHER, .c=t.c};
+		}
 
 		assert(isdigit(t.c));
 		p->state = TEX_MIDLINE;

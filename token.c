@@ -20,6 +20,15 @@ struct tex_token *tex_token_alloc(struct tex_token t) {
 	return ret;
 }
 
+struct tex_token *tex_token_copy(struct tex_token *t) {
+	struct tex_token *ret = NULL;
+	while(t) {
+		ret = tex_token_append(ret, *t);
+		t = t->next;
+	}
+	return ret;
+}
+
 void tex_token_free(struct tex_token *t) {
 	if(t == NULL) return;
 

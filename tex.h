@@ -138,6 +138,7 @@ void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struc
 
 void tex_handle_macro_par(struct tex_parser* p, struct tex_val m);
 void tex_handle_macro_def(struct tex_parser* p, struct tex_val m);
+void tex_handle_macro_edef(struct tex_parser* p, struct tex_val m);
 
 struct tex_token tex_read_token(struct tex_parser *p);
 struct tex_token tex_read_char(struct tex_parser *p);
@@ -155,6 +156,7 @@ struct tex_char_stream *tex_char_stream_str(char *input, struct tex_char_stream 
 
 //Token related functions
 struct tex_token *tex_token_alloc(struct tex_token t);
+struct tex_token *tex_token_copy(struct tex_token *t);
 void tex_token_free(struct tex_token *t);
 struct tex_token *tex_token_join(struct tex_token *before, struct tex_token *after);
 struct tex_token *tex_token_append(struct tex_token *before, struct tex_token t);
@@ -164,3 +166,6 @@ void tex_token_print(struct tex_token t);
 void tex_tokenlist_print(struct tex_token *t);
 char *tex_tokenlist_as_str(struct tex_token *t);
 size_t tex_tokenlist_len(struct tex_token *t);
+
+void tex_macro_replace(struct tex_parser *p, struct tex_token t);
+void tex_parameter_replace(struct tex_parser *p, struct tex_token t);

@@ -87,22 +87,28 @@ static void handle_write(struct tex_parser* p, struct tex_val m){
 
 int main(int argc, const char *argv[]) {
 	signal(SIGSEGV, handler);   // install our handler
+	signal(SIGINT, handler);   // install our handler
 
 	struct tex_parser p;
 
 	char *input =
-		"\\openout0=testout\n"
-		"\\write0{hello world}\n"
+		"\\def\\double#1{#1#1}\n"
+		"\\double1\n"
+		"\\edef\\a{\\double{xy}}\n"
+		//"\\double1\n"
 		;
 
 	tex_init_parser(&p);
 	//tex_input_file(&p, "<stdin>", stdin);
 	tex_define_macro_func(&p, "def", tex_handle_macro_def);
+	tex_define_macro_func(&p, "edef", tex_handle_macro_edef);
 	tex_define_macro_func(&p, "par", tex_handle_macro_par);
 	tex_define_macro_func(&p, "env", handle_env);
 	tex_define_macro_func(&p, "openout", handle_openout);
 	tex_define_macro_func(&p, "write", handle_write);
 	tex_input_str(&p, "<str>", input);
+
+	printf("%s", input);
 
 	//NOTE: TEX_INVALID characters do continue with a warning, as in regular tex,
 	//but instead indicated end of input. By default only '\0' and '\127' are INVALID,
