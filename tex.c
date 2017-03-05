@@ -50,39 +50,39 @@ static void handle_env(struct tex_parser* p, struct tex_val m){
 static void handle_openout(struct tex_parser* p, struct tex_val m){
 	int n = tex_read_num(p);
 	if(n < 0 || n > 15)
-		p->error("output stream must be between 0-15");
+		p->error(p, "output stream must be between 0-15");
 
 	struct tex_token t = tex_read_token(p);
 	if(t.c != '=')
-		p->error("\\openout expects = after file number");
+		p->error(p, "\\openout expects = after file number");
 
 	char *filename = tex_read_filename(p);
 
 	if(p->out[n]) fclose(p->out[n]);
 	p->out[n] = fopen(filename, "w");
 	if(p->out[n] == NULL)
-		p->error("could not open \"%s\" for writing", filename);
+		p->error(p, "could not open \"%s\" for writing", filename);
 }
 
 //Writes a balanced block to given output stream (0-15)
 static void handle_write(struct tex_parser* p, struct tex_val m){
 	int n = tex_read_num(p);
 	if(n < 0 || n > 15)
-		p->error("output stream must be between 0-15");
+		p->error(p, "output stream must be between 0-15");
 
 	if(p->out[n] == NULL)
 		//NOTE: in TeX, this case would just be stdout by default
-		p->error("output stream %i is not open", n);
+		p->error(p, "output stream %i is not open", n);
 
 	struct tex_token *block = tex_read_block(p);
 	if(!block)
-		p->error("expected block after \\write");
+		p->error(p, "expected block after \\write");
 
 	char *out = tex_tokenlist_as_str(block);
 	size_t outlen = strlen(out);
 
 	if(fwrite(out, 1, outlen, p->out[n]) < outlen)
-		p->error("could not finish writing to file stream %i", n);
+		p->error(p, "could not finish writing to file stream %i", n);
 }
 
 int main(int argc, const char *argv[]) {

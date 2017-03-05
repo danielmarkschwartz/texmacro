@@ -6,11 +6,11 @@
 
 #include "tex.h"
 
-static void error(char *fmt, ...){
+static void error(struct tex_parser *p, char *fmt, ...){
 	va_list ap;
 	va_start(ap, fmt);
 
-	fprintf(stderr, "ERROR: ");
+	fprintf(stderr, "ERR:file \"%s\" line %i col %i:", p->char_stream->name, p->char_stream->line+1, p->char_stream->col+1);
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
 
@@ -30,7 +30,7 @@ void tex_input_file(struct tex_parser *p, char *name, FILE *file){
 	assert(file);
 
 	struct tex_char_stream *s = malloc(sizeof *s);
-	if(!s) p->error("Could not allocate memory");
+	if(!s) p->error(p, "Could not allocate memory");
 
 	*s = (struct tex_char_stream){TEX_FILE, .name=name, .file=file, .next=p->char_stream};
 
@@ -43,7 +43,7 @@ void tex_input_buf(struct tex_parser *p, char *name, char *buf, size_t n) {
 	assert(buf);
 
 	struct tex_char_stream *s = malloc(sizeof *s);
-	if(!s) p->error("Could not allocate memory");
+	if(!s) p->error(p, "Could not allocate memory");
 
 	void *mybuf = malloc(n);
 	memcpy(mybuf, buf, n);
@@ -83,7 +83,7 @@ void tex_init_parser(struct tex_parser *p){
 	memset(p, 0, sizeof *p);
 
 	p->block = malloc(sizeof *p->block);
-	if(!p->block) p->error("Could not allocate memory");
+	if(!p->block) p->error(p, "Could not allocate memory");
 	memset(p->block, 0, sizeof *p->block);
 
 	//Set default character codes
@@ -112,7 +112,7 @@ void tex_init_parser(struct tex_parser *p){
 
 void tex_block_enter(struct tex_parser *p) {
 	struct tex_block *b = malloc(sizeof *b);
-	if(!b) p->error("Could not allocate memory");
+	if(!b) p->error(p, "Could not allocate memory");
 	memset(b, 0, sizeof *b);
 
 	for(int i = 0; i < 127; i++)
@@ -125,7 +125,7 @@ void tex_block_enter(struct tex_parser *p) {
 void tex_block_exit(struct tex_parser *p) {
 	assert(p && p->block);  //There should always be a block defined
 	if(!p->block->parent)
-		p->error("Extraneous group close");
+		p->error(p, "Extraneous group close");
 
 	struct tex_block *b = p->block;
 	p->block = b->parent;
@@ -158,10 +158,10 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist) {
 	while(arglist && arglist->cat != TEX_PARAMETER){
 		t = tex_read_token(p);
 		if(t.cat == TEX_INVALID)
-			p->error("Input ends while reading macro arguments");
+			p->error(p, "Input ends while reading macro arguments");
 
 		if(!tex_token_eq(*arglist, t))
-			p->error("Macro usage does not match definition");
+			p->error(p, "Macro usage does not match definition");
 
 		arglist = arglist->next;
 	}
@@ -228,7 +228,7 @@ struct tex_token *tex_parse_arglist(struct tex_parser *p) {
 	while((t = tex_read_token(p)).cat != TEX_BEGIN_GROUP) {
 		if(t.cat == TEX_INVALID) break;
 		if(t.cat == TEX_PARAMETER && t.c != pn++)
-			p->error("Paramater numbers should increase sequentially");
+			p->error(p, "Paramater numbers should increase sequentially");
 		ts = tex_token_append(ts, t);
 	}
 
@@ -478,14 +478,17 @@ struct tex_val *tex_val_find(struct tex_parser *p, struct tex_token t) {
 	return NULL;
 }
 
+//TODO: this needs to return the value, not append it to the parser
 void tex_macro_replace(struct tex_parser *p, struct tex_token t) {
+	assert(t.cat = TEX_ESC);
 	struct tex_val *m = tex_val_find(p, t);
-	if(!m) p->error("Macro '\\%s' not found", t.s);
+	if(!m) p->error(p, "Macro '\\%s' not found", t.s);
 
 	assert(m->handler);
 	m->handler(p, *m);
 }
 
+//TODO: this needs to return the value, not append it to the parser
 void tex_parameter_replace(struct tex_parser *p, struct tex_token t) {
 	assert(p && p->block);
 	assert(t.cat == TEX_PARAMETER);
@@ -496,10 +499,9 @@ void tex_parameter_replace(struct tex_parser *p, struct tex_token t) {
 	assert(p->block->macro.cat == TEX_ESC);
 
 	struct tex_token *para = p->block->parameter[(size_t)t.c-1];
-	//ERROR: Undefined parameter
-	assert(para);
+	if(para == NULL) p->error(p, "Undefined parameter %i", t.c);
 
-	p->token = tex_token_join(para, p->token);
+	p->token = tex_token_join(tex_token_copy(para), p->token);
 }
 
 #define CHAR_MAX_LEN 12
@@ -519,13 +521,13 @@ int tex_read_num(struct tex_parser *p) {
 	tex_unread_char(p);
 
 	if(n == 0)
-		p->error("Expected an integer value, but no numbers have been found");
+		p->error(p, "Expected an integer value, but no numbers have been found");
 
 
 	s[n] = 0;
 	int i = strtol(s, &end, 10);
 	if(end == s)
-		p->error("\"%s\"could not be parsed as integer", s);
+		p->error(p, "\"%s\"could not be parsed as integer", s);
 
 	return i;
 }

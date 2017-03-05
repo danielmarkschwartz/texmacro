@@ -111,7 +111,10 @@ struct tex_parser {
 	struct tex_token *token;		//Stream of saved tokens (read before character input)
 	struct tex_block *block;		//Hierarchy of namespaces
 	enum tex_state state;			//Current state of tokenizer
-	void (*error)(char *fmt, ...);		//Error handler in printf style, should not return
+
+	//Error handler in printf style, should not return
+	void (*error)(struct tex_parser *, char *fmt, ...);
+
 	FILE *in[16], *out[16];			//Input/output streams
 };
 
