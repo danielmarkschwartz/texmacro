@@ -138,7 +138,7 @@ void tex_block_exit(struct tex_parser *p) {
 }
 
 
-void tex_define_macro_func(struct tex_parser *p, char *cs, void (*handler)(struct tex_parser*, struct tex_val)){
+void tex_define_macro_func(struct tex_parser *p, char *cs, struct tex_token * (*handler)(struct tex_parser*, struct tex_val)){
 	assert(p);
 	assert(p->block->vals_n < VAL_MAX);
 
@@ -275,13 +275,10 @@ struct tex_token *tex_read_block(struct tex_parser *p) {
 	}
 
 	struct tex_token *ts = NULL;
+	struct tex_block *start_block = p->block;
 
-	int group = 0;
-	while((t = tex_read_token(p)).cat != TEX_END_GROUP || group > 0) {
-		if(t.cat == TEX_BEGIN_GROUP) group ++;
-		if(t.cat == TEX_END_GROUP) group --;
+	while((t = tex_read_token(p)).cat != TEX_END_GROUP || p->block != start_block)
 		ts = tex_token_append(ts, t);
-	}
 
 	return ts;
 }
@@ -289,42 +286,53 @@ struct tex_token *tex_read_block(struct tex_parser *p) {
 //Reads one balanced block of tokens, or NULL if next token is not a TEX_BEGIN_GROUP
 //Expands tokens inside block if able
 struct tex_token *tex_read_and_expand_block(struct tex_parser *p) {
-	struct tex_token *ts = tex_read_block(p), *ret = NULL;
+	struct tex_token t = tex_read_token(p), *ret = NULL;
+	struct tex_block *start_block = p->block;
 
-	while(ts) {
-		switch(ts->cat) {
-		case TEX_ESC: tex_macro_replace(p, *ts); break;
-		case TEX_PARAMETER: tex_parameter_replace(p, *ts); break;
+	if(t.cat != TEX_BEGIN_GROUP){
+		//TODO: unread this token
+		return NULL;
+	}
+
+	while((t = tex_read_token(p)).cat != TEX_END_GROUP || p->block != start_block) {
+		switch(t.cat) {
+		case TEX_ESC:
+			p->token = tex_token_join(tex_macro_replace(p, t), p->token);
+			break;
+		case TEX_PARAMETER:
+			p->token = tex_token_join(tex_parameter_replace(p, t), p->token);
+			break;
 		case TEX_BEGIN_GROUP: tex_block_enter(p); break;
 		case TEX_END_GROUP: tex_block_exit(p); break;
-		default: ret = tex_token_append(ret, *ts);
+		default: ret = tex_token_append(ret, t);
 		}
-
-		ts = ts->next;
 	}
 
 	return ret;
 }
 
+#define ENDGROUP (struct tex_token){TEX_END_GROUP, .c='}'}
+#define EOL (struct tex_token){TEX_OTHER, .c='\n'}
+
 //Handle a general purpose macro, such as those previously defined by \def
-void tex_handle_macro_general(struct tex_parser* p, struct tex_val m){
+struct tex_token *tex_handle_macro_general(struct tex_parser* p, struct tex_val m){
+	assert(p);
+
 	tex_block_enter(p);
 	p->block->macro = m.cs;
 
 	tex_parse_arguments(p, m.arglist);
 
-	tex_input_token(p, (struct tex_token){TEX_END_GROUP, .c='}'});
-	p->token = tex_token_join(m.replacement, p->token);
+	return tex_token_join(tex_token_copy(m.replacement), tex_token_alloc(ENDGROUP));
 }
 
-void tex_handle_macro_par(struct tex_parser* p, struct tex_val m){
+struct tex_token *tex_handle_macro_par(struct tex_parser* p, struct tex_val m){
 	assert(p);
-	p->token = tex_token_prepend((struct tex_token){TEX_OTHER, .c='\n'}, p->token);
-	p->token = tex_token_prepend((struct tex_token){TEX_OTHER, .c='\n'}, p->token);
+	return tex_token_join(tex_token_alloc(EOL), tex_token_alloc(EOL));
 }
 
 //Handle \def macros
-void tex_handle_macro_def(struct tex_parser* p, struct tex_val m){
+struct tex_token *tex_handle_macro_def(struct tex_parser* p, struct tex_val m){
 	struct tex_token cs = tex_read_token(p);
 	assert(cs.cat == TEX_ESC);
 
@@ -333,9 +341,11 @@ void tex_handle_macro_def(struct tex_parser* p, struct tex_val m){
 	assert(replacement);
 
 	tex_define_macro_tokens(p, cs.s, arglist, replacement);
+
+	return NULL;
 }
 
-void tex_handle_macro_edef(struct tex_parser* p, struct tex_val m){
+struct tex_token *tex_handle_macro_edef(struct tex_parser* p, struct tex_val m){
 	struct tex_token cs = tex_read_token(p);
 	assert(cs.cat == TEX_ESC);
 
@@ -344,6 +354,8 @@ void tex_handle_macro_edef(struct tex_parser* p, struct tex_val m){
 	assert(replacement);
 
 	tex_define_macro_tokens(p, cs.s, arglist, replacement);
+
+	return NULL;
 }
 
 
@@ -545,18 +557,16 @@ struct tex_val *tex_val_find(struct tex_parser *p, struct tex_token t) {
 	return NULL;
 }
 
-//TODO: this needs to return the value, not append it to the parser
-void tex_macro_replace(struct tex_parser *p, struct tex_token t) {
+struct tex_token *tex_macro_replace(struct tex_parser *p, struct tex_token t) {
 	assert(t.cat = TEX_ESC);
 	struct tex_val *m = tex_val_find(p, t);
 	if(!m) p->error(p, "Macro '\\%s' not found", t.s);
 
 	assert(m->handler);
-	m->handler(p, *m);
+	return m->handler(p, *m);
 }
 
-//TODO: this needs to return the value, not append it to the parser
-void tex_parameter_replace(struct tex_parser *p, struct tex_token t) {
+struct tex_token *tex_parameter_replace(struct tex_parser *p, struct tex_token t) {
 	assert(p && p->block);
 	assert(t.cat == TEX_PARAMETER);
 
@@ -568,7 +578,7 @@ void tex_parameter_replace(struct tex_parser *p, struct tex_token t) {
 	struct tex_token *para = p->block->parameter[(size_t)t.c-1];
 	if(para == NULL) p->error(p, "Undefined parameter %i", t.c);
 
-	p->token = tex_token_join(tex_token_copy(para), p->token);
+	return tex_token_copy(para);
 }
 
 #define CHAR_MAX_LEN 12
@@ -630,8 +640,12 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 
 		switch(tok.cat) {
 		case TEX_IGNORE: i--; continue;
-		case TEX_ESC: tex_macro_replace(p, tok); i--; continue;
-		case TEX_PARAMETER: tex_parameter_replace(p, tok); i--; continue;
+		case TEX_ESC:
+			p->token = tex_token_join(tex_macro_replace(p, tok), p->token);
+			i--; continue;
+		case TEX_PARAMETER:
+			p->token = tex_token_join(tex_parameter_replace(p, tok), p->token);
+			i--; continue;
 		case TEX_BEGIN_GROUP: tex_block_enter(p); i--; continue;
 		case TEX_END_GROUP: tex_block_exit(p); i--; continue;
 		default: buf[i] = tok.c;

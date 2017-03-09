@@ -28,9 +28,10 @@ void handler(int sig) {
 	exit(1);
 }
 
+/*
 //Becomes the ENV value of the given key
 //\env#1{<value}
-static void handle_env(struct tex_parser* p, struct tex_val m){
+static struct tex_token *handle_env(struct tex_parser* p, struct tex_val m){
 	struct tex_parser a;
 	tex_init_parser(&a);
 	tex_input_str(&a, "-", "#1 {");
@@ -44,10 +45,11 @@ static void handle_env(struct tex_parser* p, struct tex_val m){
 	char* env = getenv(tex_tokenlist_as_str(p->block->parameter[0]));
 	if(env) tex_input_str(p, "<env>", env);
 }
+*/
 
 //Opens the given number stream (0-15) for writing to given filename
 //\openout<num>=<filname>
-static void handle_openout(struct tex_parser* p, struct tex_val m){
+static struct tex_token *handle_openout(struct tex_parser* p, struct tex_val m){
 	int n = tex_read_num(p);
 	if(n < 0 || n > 15)
 		p->error(p, "output stream must be between 0-15");
@@ -62,10 +64,12 @@ static void handle_openout(struct tex_parser* p, struct tex_val m){
 	p->out[n] = fopen(filename, "w");
 	if(p->out[n] == NULL)
 		p->error(p, "could not open \"%s\" for writing", filename);
+
+	return NULL;
 }
 
 //Writes a balanced block to given output stream (0-15)
-static void handle_write(struct tex_parser* p, struct tex_val m){
+static struct tex_token *handle_write(struct tex_parser* p, struct tex_val m){
 	int n = tex_read_num(p);
 	if(n < 0 || n > 15)
 		p->error(p, "output stream must be between 0-15");
@@ -83,6 +87,8 @@ static void handle_write(struct tex_parser* p, struct tex_val m){
 
 	if(fwrite(out, 1, outlen, p->out[n]) < outlen)
 		p->error(p, "could not finish writing to file stream %i", n);
+
+	return NULL;
 }
 
 int main(int argc, const char *argv[]) {
@@ -93,9 +99,9 @@ int main(int argc, const char *argv[]) {
 
 	char *input =
 		"\\def\\double#1{#1#1}\n"
-		"\\double1\n"
+		//"\\double{xy}\n"
 		"\\edef\\a{\\double{xy}}\n"
-		//"\\double1\n"
+		"\\a\n"
 		;
 
 	tex_init_parser(&p);
@@ -103,7 +109,7 @@ int main(int argc, const char *argv[]) {
 	tex_define_macro_func(&p, "def", tex_handle_macro_def);
 	tex_define_macro_func(&p, "edef", tex_handle_macro_edef);
 	tex_define_macro_func(&p, "par", tex_handle_macro_par);
-	tex_define_macro_func(&p, "env", handle_env);
+	//tex_define_macro_func(&p, "env", handle_env);
 	tex_define_macro_func(&p, "openout", handle_openout);
 	tex_define_macro_func(&p, "write", handle_write);
 	tex_input_str(&p, "<str>", input);
