@@ -97,24 +97,25 @@ int main(int argc, const char *argv[]) {
 
 	struct tex_parser p;
 
+	/*
 	char *input =
-		"\\def\\double#1{#1#1}\n"
-		//"\\double{xy}\n"
-		"\\edef\\a{\\double{xy}}\n"
-		"\\a\n"
+		"\\edef\\a{\\global\\def\\b{B is live}}\n"
+		"\\b\n"
 		;
+		*/
 
 	tex_init_parser(&p);
-	//tex_input_file(&p, "<stdin>", stdin);
+	tex_input_file(&p, "<stdin>", stdin);
 	tex_define_macro_func(&p, "def", tex_handle_macro_def);
 	tex_define_macro_func(&p, "edef", tex_handle_macro_edef);
+	tex_define_macro_func(&p, "global", tex_handle_macro_global);
 	tex_define_macro_func(&p, "par", tex_handle_macro_par);
 	//tex_define_macro_func(&p, "env", handle_env);
 	tex_define_macro_func(&p, "openout", handle_openout);
 	tex_define_macro_func(&p, "write", handle_write);
-	tex_input_str(&p, "<str>", input);
+	//tex_input_str(&p, "<str>", input);
 
-	printf("%s", input);
+	//printf("%s", input);
 
 	//NOTE: TEX_INVALID characters do continue with a warning, as in regular tex,
 	//but instead indicated end of input. By default only '\0' and '\127' are INVALID,

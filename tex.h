@@ -116,6 +116,8 @@ struct tex_parser {
 	void (*error)(struct tex_parser *, char *fmt, ...);
 
 	FILE *in[16], *out[16];			//Input/output streams
+
+	int in_global;
 };
 
 //Parser related functions
@@ -139,6 +141,7 @@ void tex_define_macro_func(struct tex_parser *p, char *cs, struct tex_token * (*
 struct tex_token *tex_handle_macro_par(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_def(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_edef(struct tex_parser* p, struct tex_val m);
+struct tex_token *tex_handle_macro_global(struct tex_parser* p, struct tex_val m);
 
 struct tex_token tex_read_token(struct tex_parser *p);
 struct tex_token tex_read_char(struct tex_parser *p);

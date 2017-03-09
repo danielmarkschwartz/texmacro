@@ -287,6 +287,8 @@ struct tex_token *tex_read_block(struct tex_parser *p) {
 //Expands tokens inside block if able
 struct tex_token *tex_read_and_expand_block(struct tex_parser *p) {
 	struct tex_token t = tex_read_token(p), *ret = NULL;
+
+	tex_block_enter(p);
 	struct tex_block *start_block = p->block;
 
 	if(t.cat != TEX_BEGIN_GROUP){
@@ -307,6 +309,8 @@ struct tex_token *tex_read_and_expand_block(struct tex_parser *p) {
 		default: ret = tex_token_append(ret, t);
 		}
 	}
+
+	tex_block_exit(p);
 
 	return ret;
 }
@@ -351,7 +355,6 @@ struct tex_token *tex_handle_macro_edef(struct tex_parser* p, struct tex_val m){
 
 	struct tex_token *arglist = tex_parse_arglist(p);
 	struct tex_token *replacement = tex_read_and_expand_block(p);
-	assert(replacement);
 
 	tex_define_macro_tokens(p, cs.s, arglist, replacement);
 
@@ -359,11 +362,22 @@ struct tex_token *tex_handle_macro_edef(struct tex_parser* p, struct tex_val m){
 }
 
 
+struct tex_token *tex_handle_macro_global(struct tex_parser *p, struct tex_val m){
+	p->in_global = TRUE;
+	return NULL;
+}
+
 void tex_define_macro_tokens(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement) {
 	assert(p);
 	assert(p->block->vals_n < VAL_MAX);
 
-	p->block->vals[p->block->vals_n++] = (struct tex_val){TEX_MACRO, (struct tex_token){TEX_ESC, .s=cs}, arglist, replacement, tex_handle_macro_general};
+	struct tex_block *b = p->block;
+	if(p->in_global){
+		while(b->parent) b = b->parent;
+		p->in_global = FALSE;
+	}
+
+	b->vals[b->vals_n++] = (struct tex_val){TEX_MACRO, (struct tex_token){TEX_ESC, .s=cs}, arglist, replacement, tex_handle_macro_general};
 }
 
 char *tex_read_control_sequence(struct tex_parser *p) {
