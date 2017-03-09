@@ -334,8 +334,11 @@ struct tex_token *tex_handle_macro_general(struct tex_parser* p, struct tex_val 
 }
 
 struct tex_token *tex_handle_macro_par(struct tex_parser* p, struct tex_val m){
-	assert(p);
 	return tex_token_join(tex_token_alloc(EOL), tex_token_alloc(EOL));
+}
+
+struct tex_token *tex_handle_macro_dollarsign(struct tex_parser* p, struct tex_val m){
+	return tex_token_alloc((struct tex_token){TEX_OTHER, .c='$'});
 }
 
 //Handle \def macros
@@ -345,7 +348,6 @@ struct tex_token *tex_handle_macro_def(struct tex_parser* p, struct tex_val m){
 
 	struct tex_token *arglist = tex_parse_arglist(p);
 	struct tex_token *replacement = tex_read_block(p);
-	assert(replacement);
 
 	tex_define_macro_tokens(p, cs.s, arglist, replacement);
 
