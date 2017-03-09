@@ -124,7 +124,7 @@ int main(int argc, const char *argv[]) {
 	//QUESTION: is it better to remove '\0' delimiter for input, to allow partial reads, or
 	//just read all the input files in at once?
 
-#define BUF_SIZE 10
+#define BUF_SIZE 1024
 	char buf[BUF_SIZE];
 
 	size_t n;

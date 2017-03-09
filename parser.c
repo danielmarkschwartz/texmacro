@@ -536,7 +536,8 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 			return (struct tex_token){TEX_OTHER, .c=t.c};
 		}
 
-		assert(isdigit(t.c));
+		if(!isdigit(t.c))
+				p->error(p, "Expected number after parameter character");
 		p->state = TEX_MIDLINE;
 		return (struct tex_token){TEX_PARAMETER, .c=t.c-'0'};
 
