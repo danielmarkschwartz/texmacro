@@ -21,7 +21,10 @@ static void error(struct tex_parser *p, char *fmt, ...){
 //  Filename may be a full path, a file in the CWD, or a file in
 //  the library path. Filename may optionally omit the ".tex" extension
 void tex_input(struct tex_parser *p, char *filename){
-	//TODO: implement
+	//TODO: look for .tex files
+	FILE *f = fopen(filename, "r");
+	if(!f) p->error(p, "Could not input file %s", filename);
+	tex_input_file(p, filename, f);
 }
 
 //Prepend contents of file stream to char stream
@@ -364,6 +367,12 @@ struct tex_token *tex_handle_macro_edef(struct tex_parser* p, struct tex_val m){
 
 struct tex_token *tex_handle_macro_global(struct tex_parser *p, struct tex_val m){
 	p->in_global = TRUE;
+	return NULL;
+}
+
+struct tex_token *tex_handle_macro_input(struct tex_parser* p, struct tex_val m){
+	char *filename = tex_tokenlist_as_str(tex_read_block(p));
+	tex_input(p, filename);
 	return NULL;
 }
 

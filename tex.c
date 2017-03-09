@@ -109,6 +109,7 @@ int main(int argc, const char *argv[]) {
 	tex_define_macro_func(&p, "def", tex_handle_macro_def);
 	tex_define_macro_func(&p, "edef", tex_handle_macro_edef);
 	tex_define_macro_func(&p, "global", tex_handle_macro_global);
+	tex_define_macro_func(&p, "input", tex_handle_macro_input);
 	tex_define_macro_func(&p, "par", tex_handle_macro_par);
 	//tex_define_macro_func(&p, "env", handle_env);
 	tex_define_macro_func(&p, "openout", handle_openout);
