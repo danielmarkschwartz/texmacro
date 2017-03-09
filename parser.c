@@ -17,6 +17,33 @@ static void error(struct tex_parser *p, char *fmt, ...){
 	exit(1);
 }
 
+
+struct tex_val *tex_val_find(struct tex_parser *p, struct tex_token t) {
+	struct tex_block *b = p->block;
+	while(b) {
+		size_t n = 0;
+		while(n < b->vals_n)
+			if(strcmp(b->vals[n].cs.s, t.s) == 0) break;
+			else n++;
+
+		if(n < b->vals_n)
+			return &b->vals[n];
+
+		b = b->parent;
+	}
+	return NULL;
+}
+
+void tex_val_set(struct tex_parser *p, struct tex_val v) {
+	assert(p);
+	struct tex_val *old_val = tex_val_find(p, v.cs);
+	if(old_val) *old_val = v;
+	else {
+		assert(p->block->vals_n < VAL_MAX);
+		p->block->vals[p->block->vals_n++] = v;
+	}
+}
+
 //Prepend contents of given filename to char stream
 //  Filename may be a full path, a file in the CWD, or a file in
 //  the library path. Filename may optionally omit the ".tex" extension
@@ -142,10 +169,7 @@ void tex_block_exit(struct tex_parser *p) {
 
 
 void tex_define_macro_func(struct tex_parser *p, char *cs, struct tex_token * (*handler)(struct tex_parser*, struct tex_val)){
-	assert(p);
-	assert(p->block->vals_n < VAL_MAX);
-
-	p->block->vals[p->block->vals_n++] = (struct tex_val){TEX_MACRO, (struct tex_token){TEX_ESC, .s=cs}, .handler=handler};
+	tex_val_set(p, (struct tex_val){TEX_MACRO, (struct tex_token){TEX_ESC, .s=cs}, .handler=handler});
 }
 
 //Parses macro arguments from parser input based on the given arglist and writes the
@@ -388,7 +412,7 @@ void tex_define_macro_tokens(struct tex_parser *p, char *cs, struct tex_token *a
 		p->in_global = FALSE;
 	}
 
-	b->vals[b->vals_n++] = (struct tex_val){TEX_MACRO, (struct tex_token){TEX_ESC, .s=cs}, arglist, replacement, tex_handle_macro_general};
+	tex_val_set(p, (struct tex_val){TEX_MACRO, (struct tex_token){TEX_ESC, .s=cs}, arglist, replacement, tex_handle_macro_general});
 }
 
 char *tex_read_control_sequence(struct tex_parser *p) {
@@ -565,22 +589,6 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 	}
 
 	return t;
-}
-
-struct tex_val *tex_val_find(struct tex_parser *p, struct tex_token t) {
-	struct tex_block *b = p->block;
-	while(b) {
-		size_t n = 0;
-		while(n < b->vals_n)
-			if(strcmp(b->vals[n].cs.s, t.s) == 0) break;
-			else n++;
-
-		if(n < b->vals_n)
-			return &b->vals[n];
-
-		b = b->parent;
-	}
-	return NULL;
 }
 
 struct tex_token *tex_macro_replace(struct tex_parser *p, struct tex_token t) {
