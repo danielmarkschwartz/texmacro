@@ -302,10 +302,13 @@ struct tex_token *tex_read_block(struct tex_parser *p) {
 	}
 
 	struct tex_token *ts = NULL;
-	struct tex_block *start_block = p->block;
+	int group = 0;
 
-	while((t = tex_read_token(p)).cat != TEX_END_GROUP || p->block != start_block)
+	while((t = tex_read_token(p)).cat != TEX_END_GROUP || group > 0) {
+		if(t.cat == TEX_BEGIN_GROUP) group++;
+		if(t.cat == TEX_END_GROUP) group--;
 		ts = tex_token_append(ts, t);
+	}
 
 	return ts;
 }
