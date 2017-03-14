@@ -410,11 +410,13 @@ void tex_define_macro_tokens(struct tex_parser *p, char *cs, struct tex_token *a
 
 	struct tex_block *b = p->block;
 	if(p->in_global){
-		while(b->parent) b = b->parent;
+		while(p->block->parent) p->block = p->block->parent;
 		p->in_global = FALSE;
 	}
 
 	tex_val_set(p, (struct tex_val){TEX_MACRO, (struct tex_token){TEX_ESC, .s=cs}, arglist, replacement, tex_handle_macro_general});
+
+	p->block = b;
 }
 
 char *tex_read_control_sequence(struct tex_parser *p) {
