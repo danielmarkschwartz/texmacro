@@ -149,6 +149,8 @@ struct tex_token *tex_handle_macro_edef(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_global(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_input(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_dollarsign(struct tex_parser* p, struct tex_val m);
+struct tex_token *tex_handle_macro_iffalse(struct tex_parser* p, struct tex_val m);
+struct tex_token *tex_handle_macro_iftrue(struct tex_parser* p, struct tex_val m);
 
 struct tex_token tex_read_token(struct tex_parser *p);
 struct tex_token tex_read_char(struct tex_parser *p);
@@ -160,6 +162,9 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist);
 struct tex_token *tex_parse_arglist(struct tex_parser *p);
 struct tex_token *tex_read_block(struct tex_parser *p);
 int tex_read(struct tex_parser *p, char *buf, int n);
+
+struct tex_val *tex_val_find(struct tex_parser *p, struct tex_token t);
+void tex_val_set(struct tex_parser *p, struct tex_val v);
 
 //Char stream related functions
 struct tex_char_stream *tex_char_stream_str(char *input, struct tex_char_stream *next);

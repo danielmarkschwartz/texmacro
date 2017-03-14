@@ -426,6 +426,35 @@ struct tex_token *tex_handle_macro_input(struct tex_parser* p, struct tex_val m)
 	return NULL;
 }
 
+#define ELSE (struct tex_token){TEX_ESC, .s="else"}
+#define FI (struct tex_token){TEX_ESC, .s="fi"}
+
+struct tex_token *tex_handle_macro_iffalse(struct tex_parser* p, struct tex_val m){
+	struct tex_token t, *ret = NULL;
+
+	while(t = tex_read_token(p), !tex_token_eq(t, ELSE) && !tex_token_eq(t, FI));
+
+	if(tex_token_eq(t, FI)) return NULL;
+
+	while(t = tex_read_token(p), !tex_token_eq(t, FI))
+		ret = tex_token_append(ret, t);
+
+	return ret;
+}
+
+struct tex_token *tex_handle_macro_iftrue(struct tex_parser* p, struct tex_val m){
+	struct tex_token t, *ret = NULL;
+
+	while(t = tex_read_token(p), !tex_token_eq(t, ELSE) && !tex_token_eq(t, FI))
+		ret = tex_token_append(ret, t);
+
+	if(tex_token_eq(t, FI)) return ret;
+
+	while(t = tex_read_token(p), !tex_token_eq(t, FI));
+
+	return ret;
+}
+
 void tex_define_macro_tokens(struct tex_parser *p, char *cs, struct tex_token *arglist, struct tex_token *replacement) {
 	assert(p);
 	assert(p->block->vals_n < VAL_MAX);

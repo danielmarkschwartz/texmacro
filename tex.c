@@ -91,6 +91,15 @@ static struct tex_token *handle_write(struct tex_parser* p, struct tex_val m){
 	return NULL;
 }
 
+static struct tex_token *handle_ifdefined(struct tex_parser* p, struct tex_val m){
+	struct tex_token c = tex_read_token(p);
+	if(c.cat != TEX_ESC) p->error(p, "Expected macro after \\ifdefined");
+
+	struct tex_val *v = tex_val_find(p, c);
+	if(v) return tex_token_alloc((struct tex_token){TEX_ESC, .s="iftrue"});
+	return tex_token_alloc((struct tex_token){TEX_ESC, .s="iffalse"});
+}
+
 int main(int argc, const char *argv[]) {
 	signal(SIGSEGV, handler);   // install our handler
 	signal(SIGINT, handler);   // install our handler
@@ -112,9 +121,12 @@ int main(int argc, const char *argv[]) {
 	tex_define_macro_func(&p, "input", tex_handle_macro_input);
 	tex_define_macro_func(&p, "par", tex_handle_macro_par);
 	tex_define_macro_func(&p, "$", tex_handle_macro_dollarsign);
+	tex_define_macro_func(&p, "iffalse", tex_handle_macro_iffalse);
+	tex_define_macro_func(&p, "iftrue", tex_handle_macro_iftrue);
 	//tex_define_macro_func(&p, "env", handle_env);
 	tex_define_macro_func(&p, "openout", handle_openout);
 	tex_define_macro_func(&p, "write", handle_write);
+	tex_define_macro_func(&p, "ifdefined", handle_ifdefined);
 	//tex_input_str(&p, "<str>", input);
 
 	//printf("%s", input);
