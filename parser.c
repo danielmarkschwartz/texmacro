@@ -128,6 +128,7 @@ void tex_init_parser(struct tex_parser *p){
 	p->block->cat['_'] = TEX_SUB;
 	p->block->cat['\0'] = TEX_INVALID;
 	p->block->cat[' '] = TEX_SPACE;
+	p->block->cat['\t'] = TEX_SPACE;
 	p->block->cat['\\'] = TEX_ESC;
 	p->block->cat['~'] = TEX_ACTIVE;
 	p->block->cat['%'] = TEX_COMMENT;
