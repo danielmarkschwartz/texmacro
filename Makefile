@@ -4,3 +4,6 @@ test: tex
 	./tex
 
 tex: tex.c token.c parser.c
+
+install: tex
+	cp tex ~/bin/texmacro
