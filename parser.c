@@ -352,12 +352,11 @@ struct tex_token *tex_read_and_expand_block(struct tex_parser *p) {
 struct tex_token *tex_handle_macro_general(struct tex_parser* p, struct tex_val m){
 	assert(p);
 
-	tex_block_enter(p);
 	p->block->macro = m.cs;
 
 	tex_parse_arguments(p, m.arglist);
 
-	return tex_token_join(tex_token_copy(m.replacement), tex_token_alloc(ENDGROUP));
+	return tex_token_copy(m.replacement);
 }
 
 struct tex_token *tex_handle_macro_par(struct tex_parser* p, struct tex_val m){
