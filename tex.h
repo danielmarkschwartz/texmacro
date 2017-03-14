@@ -13,7 +13,7 @@
 struct tex_parser;
 
 enum tex_category {
-	//TODO: improve error handling
+	TEX_STACK_POP = -2,
 	TEX_ERROR = -1,
 	TEX_OTHER = 0,
 	TEX_BEGIN_GROUP,
@@ -31,6 +31,7 @@ enum tex_category {
 	TEX_ACTIVE,
 	TEX_COMMENT,
 	TEX_INVALID,
+
 	TEX_CAT_NUM,
 };
 
@@ -100,16 +101,20 @@ struct tex_block {
 	struct tex_val vals[VAL_MAX];
 	size_t vals_n;
 
+	struct tex_block *parent;
+};
+
+struct tex_stack {
 	struct tex_token macro;
 	struct tex_token *parameter[9];
-
-	struct tex_block *parent;
+	struct tex_stack *parent;
 };
 
 struct tex_parser {
 	struct tex_char_stream *char_stream;	//Stream of input characters
 	struct tex_token *token;		//Stream of saved tokens (read before character input)
 	struct tex_block *block;		//Hierarchy of namespaces
+	struct tex_stack *stack;		//Hierarchy of macro replacements
 	enum tex_state state;			//Current state of tokenizer
 
 	//Error handler in printf style, should not return
