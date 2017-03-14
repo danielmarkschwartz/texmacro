@@ -486,11 +486,11 @@ void tex_unread_char(struct tex_parser *p) {
 	if(!p->char_stream) return;
 
 	assert(p->char_stream->type == TEX_BUF || p->char_stream->type == TEX_FILE);
-	assert(p->char_stream->buf.i > 0);
 
-	if(p->char_stream->type == TEX_BUF)
+	if(p->char_stream->type == TEX_BUF) {
+		assert(p->char_stream->buf.i > 0);
 		p->char_stream->buf.i--;
-	else //TEX_FILE
+	} else //TEX_FILE
 		ungetc(p->char_stream->last, p->char_stream->file);
 
 	//NOTE: this doesn't set the correct column or line
