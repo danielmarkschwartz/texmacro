@@ -390,6 +390,14 @@ struct tex_token *tex_handle_macro_dollarsign(struct tex_parser* p, struct tex_v
 	return tex_token_alloc((struct tex_token){TEX_OTHER, .c='$'});
 }
 
+struct tex_token *tex_handle_macro_hash(struct tex_parser* p, struct tex_val m){
+	return tex_token_alloc((struct tex_token){TEX_OTHER, .c='#'});
+}
+
+struct tex_token *tex_handle_macro_space(struct tex_parser* p, struct tex_val m){
+	return tex_token_alloc((struct tex_token){TEX_OTHER, .c=' '});
+}
+
 //Handle \def macros
 struct tex_token *tex_handle_macro_def(struct tex_parser* p, struct tex_val m){
 	struct tex_token cs = tex_read_token(p);

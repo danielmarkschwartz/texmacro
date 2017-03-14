@@ -121,6 +121,8 @@ int main(int argc, const char *argv[]) {
 	tex_define_macro_func(&p, "input", tex_handle_macro_input);
 	tex_define_macro_func(&p, "par", tex_handle_macro_par);
 	tex_define_macro_func(&p, "$", tex_handle_macro_dollarsign);
+	tex_define_macro_func(&p, "#", tex_handle_macro_hash);
+	tex_define_macro_func(&p, " ", tex_handle_macro_space);
 	tex_define_macro_func(&p, "iffalse", tex_handle_macro_iffalse);
 	tex_define_macro_func(&p, "iftrue", tex_handle_macro_iftrue);
 	//tex_define_macro_func(&p, "env", handle_env);
