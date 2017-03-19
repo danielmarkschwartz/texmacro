@@ -216,7 +216,7 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist) {
 			p->error(p, "Input ends while reading macro arguments");
 
 		if(!tex_token_eq(*arglist, t))
-			p->error(p, "Macro usage does not match definition");
+			p->error(p, "Macro usage does not match definition, expected '%s' but got '%s'", tex_tokenlist_as_str(arglist), tex_tokenlist_as_str(&t));
 
 		arglist = arglist->next;
 	}
