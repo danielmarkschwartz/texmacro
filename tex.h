@@ -182,6 +182,7 @@ int tex_token_eq(struct tex_token a, struct tex_token b);
 void tex_token_print(struct tex_token t);
 void tex_tokenlist_print(struct tex_token *t);
 char *tex_tokenlist_as_str(struct tex_token *t);
+struct tex_token *tex_str_as_tokenlist(char *s);
 size_t tex_tokenlist_len(struct tex_token *t);
 
 struct tex_token *tex_macro_replace(struct tex_parser *p, struct tex_token t);

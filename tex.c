@@ -4,6 +4,7 @@
  *
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -81,6 +82,15 @@ static struct tex_token *handle_ifdefined(struct tex_parser* p, struct tex_val m
 	return tex_token_alloc((struct tex_token){TEX_ESC, .s="iffalse"});
 }
 
+static struct tex_token *handle_filename(struct tex_parser* p, struct tex_val m){
+	assert(p);
+
+	struct tex_char_stream *s = p->char_stream;
+	if(!s || !s->name) return NULL;
+
+	return tex_str_as_tokenlist(s->name);
+}
+
 void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "def", tex_handle_macro_def);
 	tex_define_macro_func(p, "edef", tex_handle_macro_edef);
@@ -95,6 +105,7 @@ void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "openout", handle_openout);
 	tex_define_macro_func(p, "write", handle_write);
 	tex_define_macro_func(p, "ifdefined", handle_ifdefined);
+	tex_define_macro_func(p, "filename", handle_filename);
 }
 
 int main(int argc, const char *argv[]) {

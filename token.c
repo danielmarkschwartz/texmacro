@@ -100,6 +100,7 @@ size_t tex_tokenlist_len(struct tex_token *t) {
 	}
 	return n;
 }
+
 char *tex_tokenlist_as_str(struct tex_token *t) {
 	size_t len = tex_tokenlist_len(t);
 	char *s, *ret = malloc(len+1);
@@ -116,4 +117,14 @@ char *tex_tokenlist_as_str(struct tex_token *t) {
 	}
 	*s = 0;
 	return ret;
+}
+
+//Returns a token list where all the characters of s are tokenized as TEX_OTHER
+struct tex_token *tex_str_as_tokenlist(char *s) {
+	if(!s) return NULL;
+
+	struct tex_token *t = NULL;
+	while(*s) t = tex_token_append(t, (struct tex_token){TEX_OTHER, .c=*(s++)});
+
+	return t;
 }
