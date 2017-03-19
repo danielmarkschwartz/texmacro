@@ -78,6 +78,9 @@ void tex_input_buf(struct tex_parser *p, char *name, char *buf, size_t n) {
 	void *mybuf = malloc(n);
 	memcpy(mybuf, buf, n);
 
+	name = strdup(name);
+	if(!name) p->error(p, "Could not allocate memory");
+
 	*s = (struct tex_char_stream){TEX_BUF, .name=name, .buf.buf=mybuf, .buf.n=n, .next=p->char_stream};
 
 	p->char_stream = s;
