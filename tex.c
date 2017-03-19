@@ -28,25 +28,6 @@ void handler(int sig) {
 	exit(1);
 }
 
-/*
-//Becomes the ENV value of the given key
-//\env#1{<value}
-static struct tex_token *handle_env(struct tex_parser* p, struct tex_val m){
-	struct tex_parser a;
-	tex_init_parser(&a);
-	tex_input_str(&a, "-", "#1 {");
-	struct tex_token *arglist = tex_parse_arglist(&a);
-	tex_free_parser(&a);
-
-	tex_block_enter(p);
-	tex_parse_arguments(p, arglist);
-
-	tex_input_str(p, "<env>", "}");
-	char* env = getenv(tex_tokenlist_as_str(p->block->parameter[0]));
-	if(env) tex_input_str(p, "<env>", env);
-}
-*/
-
 //Opens the given number stream (0-15) for writing to given filename
 //\openout<num>=<filname>
 static struct tex_token *handle_openout(struct tex_parser* p, struct tex_val m){
@@ -100,38 +81,30 @@ static struct tex_token *handle_ifdefined(struct tex_parser* p, struct tex_val m
 	return tex_token_alloc((struct tex_token){TEX_ESC, .s="iffalse"});
 }
 
+void init_macros(struct tex_parser *p) {
+	tex_define_macro_func(p, "def", tex_handle_macro_def);
+	tex_define_macro_func(p, "edef", tex_handle_macro_edef);
+	tex_define_macro_func(p, "global", tex_handle_macro_global);
+	tex_define_macro_func(p, "input", tex_handle_macro_input);
+	tex_define_macro_func(p, "par", tex_handle_macro_par);
+	tex_define_macro_func(p, "$", tex_handle_macro_dollarsign);
+	tex_define_macro_func(p, "#", tex_handle_macro_hash);
+	tex_define_macro_func(p, " ", tex_handle_macro_space);
+	tex_define_macro_func(p, "iffalse", tex_handle_macro_iffalse);
+	tex_define_macro_func(p, "iftrue", tex_handle_macro_iftrue);
+	tex_define_macro_func(p, "openout", handle_openout);
+	tex_define_macro_func(p, "write", handle_write);
+	tex_define_macro_func(p, "ifdefined", handle_ifdefined);
+}
+
 int main(int argc, const char *argv[]) {
 	signal(SIGSEGV, handler);   // install our handler
 	signal(SIGINT, handler);   // install our handler
 
 	struct tex_parser p;
-
-	/*
-	char *input =
-		"\\edef\\a{\\global\\def\\b{B is live}}\n"
-		"\\b\n"
-		;
-		*/
-
 	tex_init_parser(&p);
-	tex_input_file(&p, "<stdin>", stdin);
-	tex_define_macro_func(&p, "def", tex_handle_macro_def);
-	tex_define_macro_func(&p, "edef", tex_handle_macro_edef);
-	tex_define_macro_func(&p, "global", tex_handle_macro_global);
-	tex_define_macro_func(&p, "input", tex_handle_macro_input);
-	tex_define_macro_func(&p, "par", tex_handle_macro_par);
-	tex_define_macro_func(&p, "$", tex_handle_macro_dollarsign);
-	tex_define_macro_func(&p, "#", tex_handle_macro_hash);
-	tex_define_macro_func(&p, " ", tex_handle_macro_space);
-	tex_define_macro_func(&p, "iffalse", tex_handle_macro_iffalse);
-	tex_define_macro_func(&p, "iftrue", tex_handle_macro_iftrue);
-	//tex_define_macro_func(&p, "env", handle_env);
-	tex_define_macro_func(&p, "openout", handle_openout);
-	tex_define_macro_func(&p, "write", handle_write);
-	tex_define_macro_func(&p, "ifdefined", handle_ifdefined);
-	//tex_input_str(&p, "<str>", input);
 
-	//printf("%s", input);
+	tex_input_file(&p, "<stdin>", stdin);
 
 	//NOTE: TEX_INVALID characters do continue with a warning, as in regular tex,
 	//but instead indicated end of input. By default only '\0' and '\127' are INVALID,
