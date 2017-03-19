@@ -62,6 +62,9 @@ void tex_input_file(struct tex_parser *p, char *name, FILE *file){
 	struct tex_char_stream *s = malloc(sizeof *s);
 	if(!s) p->error(p, "Could not allocate memory");
 
+	name = strdup(name);
+	if(!name) p->error(p, "Could not allocate memory");
+
 	*s = (struct tex_char_stream){TEX_FILE, .name=name, .file=file, .next=p->char_stream};
 
 	p->char_stream = s;
