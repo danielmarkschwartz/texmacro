@@ -103,8 +103,14 @@ int main(int argc, const char *argv[]) {
 
 	struct tex_parser p;
 	tex_init_parser(&p);
+	init_macros(&p);
 
-	tex_input_file(&p, "<stdin>", stdin);
+	for(int i = 0; i < argc; i++) {
+		if(strcmp(argv[i], "-") == 0)
+			tex_input_file(&p, "<stdin>", stdin);
+		else
+			tex_input(&p, (char *)argv[i]);
+	}
 
 	//NOTE: TEX_INVALID characters do continue with a warning, as in regular tex,
 	//but instead indicated end of input. By default only '\0' and '\127' are INVALID,
