@@ -91,6 +91,31 @@ static struct tex_token *handle_filename(struct tex_parser* p, struct tex_val m)
 	return tex_str_as_tokenlist(s->name);
 }
 
+static struct tex_token *handle_catname(struct tex_parser* p, struct tex_val m){
+	assert(p);
+
+	struct tex_char_stream *s = p->char_stream;
+		if(!s || !s->name) return NULL;
+
+	//Skip past first /
+	char *n = s->name;
+	while(*n && *n != '/') n++;
+	n++;
+
+	//Find next /
+	char *e = n;
+	while(*e && *e != '/') e++;
+
+	char temp = *e;
+	*e = 0;
+
+	struct tex_token *ret = tex_str_as_tokenlist(n);
+
+	*e = temp;
+
+	return ret;
+}
+
 void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "def", tex_handle_macro_def);
 	tex_define_macro_func(p, "edef", tex_handle_macro_edef);
@@ -106,6 +131,7 @@ void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "write", handle_write);
 	tex_define_macro_func(p, "ifdefined", handle_ifdefined);
 	tex_define_macro_func(p, "filename", handle_filename);
+	tex_define_macro_func(p, "catname", handle_catname);
 }
 
 int main(int argc, const char *argv[]) {
