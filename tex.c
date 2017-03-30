@@ -116,6 +116,40 @@ static struct tex_token *handle_catname(struct tex_parser* p, struct tex_val m){
 	return ret;
 }
 
+static struct tex_token *handle_uppercase(struct tex_parser* p, struct tex_val m){
+	assert(p);
+
+	struct tex_token *block = tex_read_block(p);
+	if(!block)
+		p->error(p, "expected block after \\uppercase");
+
+	struct tex_token *ret = block;
+	while(block){
+		if(block->c >= 'a' && block->c <= 'z')
+			block->c -= 'a' - 'A';
+		block = block->next;
+	}
+
+	return ret;
+}
+
+static struct tex_token *handle_lowercase(struct tex_parser* p, struct tex_val m){
+	assert(p);
+
+	struct tex_token *block = tex_read_block(p);
+	if(!block)
+		p->error(p, "expected block after \\lowercase");
+
+	struct tex_token *ret = block;
+	while(block){
+		if(block->c >= 'A' && block->c <= 'Z')
+			block->c -= 'A' - 'a';
+		block = block->next;
+	}
+
+	return ret;
+}
+
 void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "def", tex_handle_macro_def);
 	tex_define_macro_func(p, "edef", tex_handle_macro_edef);
@@ -132,6 +166,8 @@ void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "ifdefined", handle_ifdefined);
 	tex_define_macro_func(p, "filename", handle_filename);
 	tex_define_macro_func(p, "catname", handle_catname);
+	tex_define_macro_func(p, "uppercase", handle_uppercase);
+	tex_define_macro_func(p, "lowercase", handle_lowercase);
 }
 
 int main(int argc, const char *argv[]) {
