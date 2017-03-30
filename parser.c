@@ -407,7 +407,9 @@ struct tex_token *tex_handle_macro_space(struct tex_parser* p, struct tex_val m)
 //Handle \def macros
 struct tex_token *tex_handle_macro_def(struct tex_parser* p, struct tex_val m){
 	struct tex_token cs = tex_read_token(p);
-	assert(cs.cat == TEX_ESC);
+	cs.next = NULL;
+	if(cs.cat != TEX_ESC)
+		p->error(p, "Expected escape sequence after %s, got %s", tex_tokenlist_as_str(&m.cs), tex_tokenlist_as_str(&cs));
 
 	struct tex_token *arglist = tex_parse_arglist(p);
 	struct tex_token *replacement = tex_read_block(p);
