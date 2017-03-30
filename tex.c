@@ -150,6 +150,23 @@ static struct tex_token *handle_lowercase(struct tex_parser* p, struct tex_val m
 	return ret;
 }
 
+static struct tex_token *handle_expandafter(struct tex_parser* p, struct tex_val m){
+	assert(p);
+
+	struct tex_token first, second, *expansion;
+
+	//Read first token
+	first = tex_read_token(p);
+
+	//Expand second token
+	second = tex_read_token(p);
+	expansion = tex_expand_token(p, second);
+	if(!expansion) expansion = tex_token_alloc(second);
+
+	//Prepend first token and second expansion to token stream
+	return tex_token_prepend(first, expansion);
+}
+
 void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "def", tex_handle_macro_def);
 	tex_define_macro_func(p, "edef", tex_handle_macro_edef);
@@ -168,6 +185,7 @@ void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "catname", handle_catname);
 	tex_define_macro_func(p, "uppercase", handle_uppercase);
 	tex_define_macro_func(p, "lowercase", handle_lowercase);
+	tex_define_macro_func(p, "expandafter", handle_expandafter);
 }
 
 int main(int argc, const char *argv[]) {
