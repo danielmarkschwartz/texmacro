@@ -325,7 +325,7 @@ struct tex_token *tex_parse_arglist(struct tex_parser *p) {
 struct tex_token *tex_read_block(struct tex_parser *p) {
 	struct tex_token t = tex_read_token(p);
 	if(t.cat != TEX_BEGIN_GROUP){
-		//TODO: unread this token
+		p->token = tex_token_prepend(t, p->token);
 		return NULL;
 	}
 
@@ -350,7 +350,7 @@ struct tex_token *tex_read_and_expand_block(struct tex_parser *p) {
 	struct tex_block *start_block = p->block;
 
 	if(t.cat != TEX_BEGIN_GROUP){
-		//TODO: unread this token
+		p->token = tex_token_prepend(t, p->token);
 		return NULL;
 	}
 
