@@ -341,6 +341,18 @@ struct tex_token *tex_read_block(struct tex_parser *p) {
 	return ts;
 }
 
+//Expand token if it is expandable, otherwise return NULL;
+struct tex_token *tex_expand_token(struct tex_parser *p, struct tex_token t) {
+	assert(p);
+
+	switch(t.cat){
+	case TEX_ESC: return tex_macro_replace(p, t);
+	case TEX_PARAMETER: return tex_parameter_replace(p, t);
+	default: return NULL;
+	}
+}
+
+
 //Reads one balanced block of tokens, or NULL if next token is not a TEX_BEGIN_GROUP
 //Expands tokens inside block if able
 struct tex_token *tex_read_and_expand_block(struct tex_parser *p) {
@@ -356,12 +368,12 @@ struct tex_token *tex_read_and_expand_block(struct tex_parser *p) {
 
 	while((t = tex_read_token(p)).cat != TEX_END_GROUP || p->block != start_block) {
 		switch(t.cat) {
-		case TEX_ESC:
-			p->token = tex_token_join(tex_macro_replace(p, t), p->token);
-			break;
-		case TEX_PARAMETER:
-			p->token = tex_token_join(tex_parameter_replace(p, t), p->token);
-			break;
+		case TEX_ESC:	//fallthrough
+		case TEX_PARAMETER: {
+			struct tex_token *expansion = tex_expand_token(p, t);
+			p->token = tex_token_join(expansion, p->token);
+			continue;
+			}
 		case TEX_BEGIN_GROUP: tex_block_enter(p); break;
 		case TEX_END_GROUP: tex_block_exit(p); break;
 		case TEX_STACK_POP: tex_stack_exit(p); break;
@@ -741,17 +753,17 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 	int i;
 	for(i = 0; i < n; i++) {
 		struct tex_token tok = tex_read_token(p);
-		if(tok.cat == TEX_INVALID)
-			break;
+		if(tok.cat == TEX_INVALID) break;
 
 		switch(tok.cat) {
+		case TEX_ESC: //fallthrough
+		case TEX_PARAMETER: {
+			struct tex_token *expansion = tex_expand_token(p, tok);
+			p->token = tex_token_join(expansion, p->token);
+			i--;
+			continue;
+			}
 		case TEX_IGNORE: i--; continue;
-		case TEX_ESC:
-			p->token = tex_token_join(tex_macro_replace(p, tok), p->token);
-			i--; continue;
-		case TEX_PARAMETER:
-			p->token = tex_token_join(tex_parameter_replace(p, tok), p->token);
-			i--; continue;
 		case TEX_BEGIN_GROUP: tex_block_enter(p); i--; continue;
 		case TEX_END_GROUP: tex_block_exit(p); i--; continue;
 		case TEX_STACK_POP: tex_stack_exit(p); i--; continue;

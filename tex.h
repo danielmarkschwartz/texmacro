@@ -164,6 +164,7 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist);
 struct tex_token *tex_parse_arglist(struct tex_parser *p);
 struct tex_token *tex_read_block(struct tex_parser *p);
 int tex_read(struct tex_parser *p, char *buf, int n);
+struct tex_token *tex_expand_token(struct tex_parser *p, struct tex_token t);
 
 struct tex_val *tex_val_find(struct tex_parser *p, struct tex_token t);
 void tex_val_set(struct tex_parser *p, struct tex_val v);
