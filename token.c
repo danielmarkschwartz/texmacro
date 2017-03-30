@@ -109,7 +109,7 @@ char *tex_tokenlist_as_str(struct tex_token *t) {
 	s = ret;
 	while(t) {
 		switch(t->cat){
-		case TEX_ESC: strcpy(s, t->s); s += strlen(t->s); break;
+		case TEX_ESC: *(s++) = '\\'; strcpy(s, t->s); s += strlen(t->s); break;
 		case TEX_PARAMETER: *(s++) = '#'; *(s++) = '0'+t->c; break;
 		default: *(s++) = t->c;
 		}
