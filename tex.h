@@ -110,6 +110,9 @@ struct tex_stack {
 	struct tex_stack *parent;
 };
 
+#define CHARBUF_SIZE 3
+#define MAP_SIZE 8
+
 struct tex_parser {
 	struct tex_char_stream *char_stream;	//Stream of input characters
 	struct tex_token *token;		//Stream of saved tokens (read before character input)
@@ -121,6 +124,14 @@ struct tex_parser {
 	void (*error)(struct tex_parser *, char *fmt, ...);
 
 	FILE *in[16], *out[16];			//Input/output streams
+
+	//Buffer used by tex_read_glyph()
+	char charbuf[CHARBUF_SIZE];
+	size_t charbuf_n;
+	char *mapout;
+
+	//Character sequence map
+	struct {char *in, *out;} map[MAP_SIZE];
 
 	int in_global;
 };
@@ -149,6 +160,8 @@ struct tex_token *tex_handle_macro_edef(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_global(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_input(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_dollarsign(struct tex_parser* p, struct tex_val m);
+struct tex_token *tex_handle_macro_singlequote(struct tex_parser* p, struct tex_val m);
+struct tex_token *tex_handle_macro_doublequote(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_percent(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_hash(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_space(struct tex_parser* p, struct tex_val m);

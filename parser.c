@@ -140,6 +140,23 @@ void tex_init_parser(struct tex_parser *p){
 	p->block->cat['%'] = TEX_COMMENT;
 	p->block->cat[127] = TEX_INVALID;
 
+	p->map[0].in = "---";
+	p->map[0].out = "—";
+	p->map[1].in = "--";
+	p->map[1].out = "–";
+	p->map[2].in = "`";
+	p->map[2].out = "‘";
+	p->map[3].in = "``";
+	p->map[3].out = "“";
+	p->map[4].in = "'";
+	p->map[4].out = "’";
+	p->map[5].in = "''";
+	p->map[5].out = "”";
+	p->map[6].in = "\1";
+	p->map[6].out = "'";
+	p->map[7].in = "\2";
+	p->map[7].out = "\"";
+
 	char c;
 	for (c = 'A'; c <= 'Z'; c++) p->block->cat[(size_t)c] = TEX_LETTER;
 	for (c = 'a'; c <= 'z'; c++) p->block->cat[(size_t)c] = TEX_LETTER;
@@ -406,6 +423,14 @@ struct tex_token *tex_handle_macro_par(struct tex_parser* p, struct tex_val m){
 
 struct tex_token *tex_handle_macro_dollarsign(struct tex_parser* p, struct tex_val m){
 	return tex_token_alloc((struct tex_token){TEX_OTHER, .c='$'});
+}
+
+struct tex_token *tex_handle_macro_singlequote(struct tex_parser* p, struct tex_val m){
+	return tex_token_alloc((struct tex_token){TEX_OTHER, .c=1});
+}
+
+struct tex_token *tex_handle_macro_doublequote(struct tex_parser* p, struct tex_val m){
+	return tex_token_alloc((struct tex_token){TEX_OTHER, .c=2});
 }
 
 struct tex_token *tex_handle_macro_percent(struct tex_parser* p, struct tex_val m){
@@ -750,29 +775,72 @@ char *tex_read_filename(struct tex_parser *p) {
 
 }
 
+char tex_read_glyph(struct tex_parser *p) {
+	assert(p);
+
+	//Return a mapout if available
+	if(p->mapout) {
+		char ret = *p->mapout;
+		p->mapout++;
+		if(!*p->mapout) p->mapout = NULL;
+		return ret;
+	}
+
+	//Fill up character buffer
+	while(p->charbuf_n < CHARBUF_SIZE) {
+		struct tex_token tok = tex_read_token(p);
+		switch(tok.cat) {
+		case TEX_ESC: //fallthrough
+		case TEX_PARAMETER: {
+			struct tex_token *expansion = tex_expand_token(p, tok);
+			p->token = tex_token_join(expansion, p->token);
+			continue;
+			}
+		case TEX_IGNORE: continue;
+		case TEX_BEGIN_GROUP: tex_block_enter(p); continue;
+		case TEX_END_GROUP: tex_block_exit(p); continue;
+		case TEX_STACK_POP: tex_stack_exit(p); continue;
+		case TEX_INVALID: tok.c = 0; //fallthrough
+		default: p->charbuf[p->charbuf_n++] = tok.c;
+		}
+	}
+
+	//Is the charbuf full of invalid tokens? If so then we are done
+	if(p->charbuf[0] == 0) return 0;
+
+	//Search for a mapping, largest to smallest
+
+	char buf[CHARBUF_SIZE+1];
+	memcpy(buf, p->charbuf, CHARBUF_SIZE);
+
+	for(int n = CHARBUF_SIZE; n > 0; n--) {
+		buf[n] = 0;
+		for(int i = 0; i < MAP_SIZE; i++) {
+			if(strcmp(p->map[i].in, buf) == 0) {
+				p->mapout = p->map[i].out;
+				memmove(p->charbuf, &p->charbuf[n], CHARBUF_SIZE-n);
+				p->charbuf_n -= n;
+				return tex_read_glyph(p);
+			}
+		}
+	}
+
+	//No mapping, return oldest character
+	memmove(p->charbuf, &p->charbuf[1], CHARBUF_SIZE-1);
+	p->charbuf_n -= 1;
+
+	return buf[0];
+
+}
+
 //Write the next n characters to the output buffer, returns the number written.
 int tex_read(struct tex_parser *p, char *buf, int n) {
 	assert(n>=0);
 
 	int i;
 	for(i = 0; i < n; i++) {
-		struct tex_token tok = tex_read_token(p);
-		if(tok.cat == TEX_INVALID) break;
-
-		switch(tok.cat) {
-		case TEX_ESC: //fallthrough
-		case TEX_PARAMETER: {
-			struct tex_token *expansion = tex_expand_token(p, tok);
-			p->token = tex_token_join(expansion, p->token);
-			i--;
-			continue;
-			}
-		case TEX_IGNORE: i--; continue;
-		case TEX_BEGIN_GROUP: tex_block_enter(p); i--; continue;
-		case TEX_END_GROUP: tex_block_exit(p); i--; continue;
-		case TEX_STACK_POP: tex_stack_exit(p); i--; continue;
-		default: buf[i] = tok.c;
-		}
+		buf[i] = tex_read_glyph(p);
+		if(buf[i] == 0) break;
 	}
 
 	return i;

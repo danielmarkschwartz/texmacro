@@ -178,6 +178,8 @@ void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "input", tex_handle_macro_input);
 	tex_define_macro_func(p, "par", tex_handle_macro_par);
 	tex_define_macro_func(p, "$", tex_handle_macro_dollarsign);
+	tex_define_macro_func(p, "'", tex_handle_macro_singlequote);
+	tex_define_macro_func(p, "\"", tex_handle_macro_doublequote);
 	tex_define_macro_func(p, "%", tex_handle_macro_percent);
 	tex_define_macro_func(p, "#", tex_handle_macro_hash);
 	tex_define_macro_func(p, " ", tex_handle_macro_space);
