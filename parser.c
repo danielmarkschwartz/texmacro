@@ -743,7 +743,7 @@ int tex_read_num(struct tex_parser *p) {
 		s[n++] = t.c;
 	}
 
-	tex_unread_char(p);
+	p->token = tex_token_prepend(t, p->token);
 
 	if(n == 0)
 		p->error(p, "Expected an integer value, but no numbers have been found");
@@ -759,17 +759,20 @@ int tex_read_num(struct tex_parser *p) {
 
 char *tex_read_filename(struct tex_parser *p) {
 	char filename[FILENAME_MAX+1];
-	struct tex_token t;
 	size_t n = 0;
 
 	while(n < FILENAME_MAX){
-		t = tex_read_token(p);
-		if((t.cat != TEX_LETTER && t.cat != TEX_OTHER)|| t.c == ' ')
-			break;
+		struct tex_token t;
+		for(;;) {
+			t = tex_read_token(p);
+			if(t.cat != TEX_ESC && t.cat != TEX_PARAMETER) break;
+			p->token = tex_token_join(tex_expand_token(p, t), p->token);
+		}
+
+		if(t.cat == TEX_INVALID || t.c == ' ') break;
 		filename[n++] = t.c;
 	}
 
-	tex_input_token(p, t);
 	filename[n] = 0;
 
 	return strdup(filename);

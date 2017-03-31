@@ -177,6 +177,8 @@ char *tex_read_filename(struct tex_parser *p);
 void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist);
 struct tex_token *tex_parse_arglist(struct tex_parser *p);
 struct tex_token *tex_read_block(struct tex_parser *p);
+struct tex_token *tex_read_and_expand_block(struct tex_parser *p);
+char tex_read_glyph(struct tex_parser *p);
 int tex_read(struct tex_parser *p, char *buf, int n);
 struct tex_token *tex_expand_token(struct tex_parser *p, struct tex_token t);
 

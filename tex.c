@@ -38,12 +38,12 @@ static struct tex_token *handle_openout(struct tex_parser* p, struct tex_val m){
 
 	struct tex_token t = tex_read_token(p);
 	if(t.c != '=')
-		p->error(p, "\\openout expects = after file number");
+		p->error(p, "\\openout expects = after file number, got %s", tex_tokenlist_as_str(&t));
 
 	char *filename = tex_read_filename(p);
 
 	if(p->out[n]) fclose(p->out[n]);
-	p->out[n] = fopen(filename, "w");
+	p->out[n] = fopen(filename, "a");
 	if(p->out[n] == NULL)
 		p->error(p, "could not open \"%s\" for writing", filename);
 
@@ -60,7 +60,7 @@ static struct tex_token *handle_write(struct tex_parser* p, struct tex_val m){
 		//NOTE: in TeX, this case would just be stdout by default
 		p->error(p, "output stream %i is not open", n);
 
-	struct tex_token *block = tex_read_block(p);
+	struct tex_token *block = tex_read_and_expand_block(p);
 	if(!block)
 		p->error(p, "expected block after \\write");
 
