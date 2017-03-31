@@ -418,7 +418,8 @@ struct tex_token *tex_handle_macro_general(struct tex_parser* p, struct tex_val 
 }
 
 struct tex_token *tex_handle_macro_par(struct tex_parser* p, struct tex_val m){
-	return tex_token_join(tex_token_alloc(EOL), tex_token_alloc(EOL));
+	return NULL;
+	//return tex_token_join(tex_token_alloc(EOL), tex_token_alloc(EOL));
 }
 
 struct tex_token *tex_handle_macro_dollarsign(struct tex_parser* p, struct tex_val m){
