@@ -167,6 +167,10 @@ static struct tex_token *handle_expandafter(struct tex_parser* p, struct tex_val
 	return tex_token_prepend(first, expansion);
 }
 
+static struct tex_token *handle_newline(struct tex_parser* p, struct tex_val m){
+	return tex_token_alloc((struct tex_token){TEX_OTHER, .c='\n'});
+}
+
 void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "def", tex_handle_macro_def);
 	tex_define_macro_func(p, "edef", tex_handle_macro_edef);
@@ -174,6 +178,7 @@ void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "input", tex_handle_macro_input);
 	tex_define_macro_func(p, "par", tex_handle_macro_par);
 	tex_define_macro_func(p, "$", tex_handle_macro_dollarsign);
+	tex_define_macro_func(p, "%", tex_handle_macro_percent);
 	tex_define_macro_func(p, "#", tex_handle_macro_hash);
 	tex_define_macro_func(p, " ", tex_handle_macro_space);
 	tex_define_macro_func(p, "iffalse", tex_handle_macro_iffalse);
@@ -186,6 +191,7 @@ void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "uppercase", handle_uppercase);
 	tex_define_macro_func(p, "lowercase", handle_lowercase);
 	tex_define_macro_func(p, "expandafter", handle_expandafter);
+	tex_define_macro_func(p, "newline", handle_newline);
 }
 
 int main(int argc, const char *argv[]) {

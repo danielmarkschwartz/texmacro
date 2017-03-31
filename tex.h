@@ -149,6 +149,7 @@ struct tex_token *tex_handle_macro_edef(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_global(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_input(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_dollarsign(struct tex_parser* p, struct tex_val m);
+struct tex_token *tex_handle_macro_percent(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_hash(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_space(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_iffalse(struct tex_parser* p, struct tex_val m);
