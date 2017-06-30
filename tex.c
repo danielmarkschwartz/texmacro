@@ -95,6 +95,8 @@ static struct tex_token *handle_write(struct tex_parser* p, struct tex_val m){
 	return NULL;
 }
 
+/*
+//TODO: make this actually read, instead of just a copy of handle_write
 static struct tex_token *handle_read(struct tex_parser* p, struct tex_val m){
 	int n = tex_read_num(p);
 	if(n < 0 || n > 15)
@@ -116,6 +118,7 @@ static struct tex_token *handle_read(struct tex_parser* p, struct tex_val m){
 
 	return NULL;
 }
+*/
 
 static struct tex_token *handle_ifdefined(struct tex_parser* p, struct tex_val m){
 	struct tex_token c = tex_read_token(p);
@@ -246,7 +249,7 @@ void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "openout", handle_openout);
 	tex_define_macro_func(p, "openin", handle_openin);
 	tex_define_macro_func(p, "write", handle_write);
-	tex_define_macro_func(p, "read", handle_read);
+	//tex_define_macro_func(p, "read", handle_read);
 	tex_define_macro_func(p, "ifdefined", handle_ifdefined);
 	tex_define_macro_func(p, "ifeof", handle_ifeof);
 	tex_define_macro_func(p, "filename", handle_filename);
