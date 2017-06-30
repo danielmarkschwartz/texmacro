@@ -123,6 +123,7 @@ struct tex_parser {
 	//Error handler in printf style, should not return
 	void (*error)(struct tex_parser *, char *fmt, ...);
 
+	FILE *include;
 	FILE *in[16], *out[16];			//Input/output streams
 
 	//Buffer used by tex_read_glyph()

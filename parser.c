@@ -847,6 +847,14 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 
 	int i;
 	for(i = 0; i < n; i++) {
+		if(p->include) {
+			if(feof(p->include)) p->include = NULL;
+			else{
+				buf[i] = getc(p->include);
+				continue;
+			}
+		}
+
 		buf[i] = tex_read_glyph(p);
 		if(buf[i] == 0) break;
 	}

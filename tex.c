@@ -231,6 +231,20 @@ static struct tex_token *handle_newline(struct tex_parser* p, struct tex_val m){
 	return tex_token_alloc((struct tex_token){TEX_OTHER, .c='\n'});
 }
 
+//\include{filename}, writes the source file directly to the output
+static struct tex_token *handle_include(struct tex_parser* p, struct tex_val m){
+	char *filename = tex_tokenlist_as_str(tex_read_block(p));
+	if(!filename)
+		p->error(p, "expected filename after \\include");
+
+	FILE *f = fopen(filename, "r");
+	if(!f)
+		p->error(p, "could not open file %s for reading", filename);
+
+	p->include = f;
+	return tex_token_alloc((struct tex_token){TEX_OTHER, .c=getc(f)});
+}
+
 void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "def", tex_handle_macro_def);
 	tex_define_macro_func(p, "edef", tex_handle_macro_edef);
@@ -258,6 +272,7 @@ void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "lowercase", handle_lowercase);
 	tex_define_macro_func(p, "expandafter", handle_expandafter);
 	tex_define_macro_func(p, "newline", handle_newline);
+	tex_define_macro_func(p, "include", handle_include);
 }
 
 int main(int argc, const char *argv[]) {
