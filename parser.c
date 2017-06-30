@@ -442,6 +442,10 @@ struct tex_token *tex_handle_macro_hash(struct tex_parser* p, struct tex_val m){
 	return tex_token_alloc((struct tex_token){TEX_OTHER, .c='#'});
 }
 
+struct tex_token *tex_handle_macro_amp(struct tex_parser* p, struct tex_val m){
+	return tex_token_alloc((struct tex_token){TEX_OTHER, .c='&'});
+}
+
 struct tex_token *tex_handle_macro_space(struct tex_parser* p, struct tex_val m){
 	return tex_token_alloc((struct tex_token){TEX_OTHER, .c=' '});
 }

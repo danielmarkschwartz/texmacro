@@ -164,6 +164,7 @@ struct tex_token *tex_handle_macro_singlequote(struct tex_parser* p, struct tex_
 struct tex_token *tex_handle_macro_doublequote(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_percent(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_hash(struct tex_parser* p, struct tex_val m);
+struct tex_token *tex_handle_macro_amp(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_space(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_iffalse(struct tex_parser* p, struct tex_val m);
 struct tex_token *tex_handle_macro_iftrue(struct tex_parser* p, struct tex_val m);

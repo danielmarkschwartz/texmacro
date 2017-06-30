@@ -43,12 +43,34 @@ static struct tex_token *handle_openout(struct tex_parser* p, struct tex_val m){
 	char *filename = tex_read_filename(p);
 
 	if(p->out[n]) fclose(p->out[n]);
-	p->out[n] = fopen(filename, "a");
+	p->out[n] = fopen(filename, "w");
 	if(p->out[n] == NULL)
 		p->error(p, "could not open \"%s\" for writing", filename);
 
 	return NULL;
 }
+
+//Opens the given number stream (0-15) for writing to given filename
+//\openin<num>=<filname>
+static struct tex_token *handle_openin(struct tex_parser* p, struct tex_val m){
+	int n = tex_read_num(p);
+	if(n < 0 || n > 15)
+		p->error(p, "input stream must be between 0-15");
+
+	struct tex_token t = tex_read_token(p);
+	if(t.c != '=')
+		p->error(p, "\\openin expects = after file number, got %s", tex_tokenlist_as_str(&t));
+
+	char *filename = tex_read_filename(p);
+
+	if(p->in[n]) fclose(p->in[n]);
+	p->in[n] = fopen(filename, "r");
+	if(p->in[n] == NULL)
+		p->error(p, "could not open \"%s\" for reading", filename);
+
+	return NULL;
+}
+
 
 //Writes a balanced block to given output stream (0-15)
 static struct tex_token *handle_write(struct tex_parser* p, struct tex_val m){
@@ -73,12 +95,47 @@ static struct tex_token *handle_write(struct tex_parser* p, struct tex_val m){
 	return NULL;
 }
 
+static struct tex_token *handle_read(struct tex_parser* p, struct tex_val m){
+	int n = tex_read_num(p);
+	if(n < 0 || n > 15)
+		p->error(p, "output stream must be between 0-15");
+
+	if(p->in[n] == NULL)
+		//NOTE: in TeX, this case would just be stdout by default
+		p->error(p, "output stream %i is not open", n);
+
+	struct tex_token *block = tex_read_and_expand_block(p);
+	if(!block)
+		p->error(p, "expected block after \\read");
+
+	char *in = tex_tokenlist_as_str(block);
+	size_t inlen = strlen(in);
+
+	if(fread(in, 1, inlen, p->in[n]) < inlen)
+		p->error(p, "could not finish writing to file stream %i", n);
+
+	return NULL;
+}
+
 static struct tex_token *handle_ifdefined(struct tex_parser* p, struct tex_val m){
 	struct tex_token c = tex_read_token(p);
 	if(c.cat != TEX_ESC) p->error(p, "Expected macro after \\ifdefined");
 
 	struct tex_val *v = tex_val_find(p, c);
 	if(v) return tex_token_alloc((struct tex_token){TEX_ESC, .s="iftrue"});
+	return tex_token_alloc((struct tex_token){TEX_ESC, .s="iffalse"});
+}
+
+static struct tex_token *handle_ifeof(struct tex_parser* p, struct tex_val m){
+	int n = tex_read_num(p);
+	if(n < 0 || n > 15)
+		p->error(p, "input stream must be between 0-15");
+
+	if(p->in[n] == NULL)
+		//NOTE: in TeX, this case would just be stdin by default
+		p->error(p, "input stream %i is not open", n);
+
+	if(feof(p->in[n])) return tex_token_alloc((struct tex_token){TEX_ESC, .s="iftrue"});
 	return tex_token_alloc((struct tex_token){TEX_ESC, .s="iffalse"});
 }
 
@@ -182,12 +239,16 @@ void init_macros(struct tex_parser *p) {
 	tex_define_macro_func(p, "\"", tex_handle_macro_doublequote);
 	tex_define_macro_func(p, "%", tex_handle_macro_percent);
 	tex_define_macro_func(p, "#", tex_handle_macro_hash);
+	tex_define_macro_func(p, "&", tex_handle_macro_amp);
 	tex_define_macro_func(p, " ", tex_handle_macro_space);
 	tex_define_macro_func(p, "iffalse", tex_handle_macro_iffalse);
 	tex_define_macro_func(p, "iftrue", tex_handle_macro_iftrue);
 	tex_define_macro_func(p, "openout", handle_openout);
+	tex_define_macro_func(p, "openin", handle_openin);
 	tex_define_macro_func(p, "write", handle_write);
+	tex_define_macro_func(p, "read", handle_read);
 	tex_define_macro_func(p, "ifdefined", handle_ifdefined);
+	tex_define_macro_func(p, "ifeof", handle_ifeof);
 	tex_define_macro_func(p, "filename", handle_filename);
 	tex_define_macro_func(p, "catname", handle_catname);
 	tex_define_macro_func(p, "uppercase", handle_uppercase);
