@@ -1,0 +1,10 @@
+TODO for TexMacro
+
+- Handle arguments to main()
+- Implement namespace lookup functions
+- Implement \input macro
+- Clean up macro definition functions
+- Create a function that converts token lists in to character streams?
+- Create tex_write() function to write tex output to a FILE
+- Create frame work for multi character font mapping
+- Improve cat code handling to use ranges and hierarchical lookup

@@ -233,7 +233,7 @@ void tex_parse_arguments(struct tex_parser *p, struct tex_token *arglist) {
 			p->error(p, "Input ends while reading macro arguments");
 
 		if(!tex_token_eq(*arglist, t))
-			p->error(p, "Macro usage does not match definition, expected '%s' but got '%s'", tex_tokenlist_as_str(arglist), tex_tokenlist_as_str(&t));
+			p->error(p, "Macro usage does not match definition, expected '%s' (%i) but got '%s' (%i)", tex_tokenlist_as_str(arglist), arglist->cat, tex_tokenlist_as_str(&t), t.cat);
 
 		arglist = arglist->next;
 	}
@@ -671,7 +671,7 @@ struct tex_token tex_read_token(struct tex_parser *p) {
 	case TEX_EOL:
 		switch(p->state){
 		case TEX_NEWLINE:	t = (struct tex_token){TEX_ESC, .s=strdup("par")}; break; //Return \par
-		case TEX_SKIPSPACE:	t = (struct tex_token){TEX_IGNORE}; break;  //Skip space
+		case TEX_SKIPSPACE:	t = tex_read_token(p); break;  //Skip space
 		case TEX_MIDLINE:	t = (struct tex_token){TEX_OTHER, .c=' '}; break; // Convert to space
 		default: assert(p->state == TEX_NEWLINE || p->state == TEX_SKIPSPACE || p->state == TEX_MIDLINE);
 		}
@@ -850,8 +850,11 @@ int tex_read(struct tex_parser *p, char *buf, int n) {
 		if(p->include) {
 			if(feof(p->include)) p->include = NULL;
 			else{
-				buf[i] = getc(p->include);
-				continue;
+				int c = getc(p->include);
+				if(c > 0){
+					buf[i] = (char)c;
+					continue;
+				}
 			}
 		}
 

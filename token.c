@@ -123,8 +123,16 @@ char *tex_tokenlist_as_str(struct tex_token *t) {
 struct tex_token *tex_str_as_tokenlist(char *s) {
 	if(!s) return NULL;
 
-	struct tex_token *t = NULL;
-	while(*s) t = tex_token_append(t, (struct tex_token){TEX_OTHER, .c=*(s++)});
+	struct tex_parser p;
+	tex_init_parser(&p);
+	tex_input_str(&p, "<str>", s);
 
-	return t;
+	struct tex_token *out = NULL;
+	for(;;){
+		struct tex_token t = tex_read_token(&p);
+		if(t.cat == TEX_INVALID) break;
+		out  = tex_token_append(out, t);
+	}
+
+	return out;
 }
